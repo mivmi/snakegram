@@ -40,6 +40,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "cryptography>=44",
     "typing_extensions>=4.12"
 ]
 requires-python = ">=3.6"

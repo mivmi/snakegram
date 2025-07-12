@@ -366,6 +366,18 @@ class Writer(io.BytesIO):
             self.seek(0, io.SEEK_END)
 
 
+def long_to_bytes(value: int):
+    """Unsigned long integer to bytes in big-endian order."""
+
+    return int.to_bytes(
+        value,
+        (value.bit_length() + 7) // 8
+    )
+
+def bytes_to_long(value: bytes):
+    """bytes to an unsigned long integer in big-endian order."""
+    return int.from_bytes(value, byteorder='big', signed=False)
+
 # circular import
-from ..tl.types.bool import TypeBool, BoolTrue, BoolFalse
-from ..tl.mtproto.types import GzipPacked
+from ..tl.types.bool import TypeBool, BoolTrue, BoolFalse  # type: ignore
+from ..tl.mtproto.types import GzipPacked # type: ignore

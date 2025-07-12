@@ -1,0 +1,64 @@
+[build-system]
+requires = [
+    "setuptools",
+    "parser @ git+https://github.com/mivmi/lalr-parser.git@main"
+]
+backend-path = ["."]
+build-backend = "backend"
+
+
+[project]
+name = "snakegram"
+dynamic = ["version"]
+
+authors = [
+    { name = "Milad" }
+]
+
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+
+readme = "README.md"
+description = "Telegram client library for Python."
+
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Communications :: Chat",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Typing :: Typed"
+]
+
+dependencies = []
+requires-python = ">=3.6"
+
+
+
+[project.urls]
+source = "https://github.com/mivmi/snakegram"
+issues = "https://github.com/mivmi/snakegram/issues"
+
+[tool.setuptools.packages.find]
+where = ['.']
+include = ['snakegram*']
+
+
+[tool.setuptools.dynamic]
+version = {attr = "snakegram.about.__version__"}
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.5",
+    "pytest-cov >=6.1.1"
+]

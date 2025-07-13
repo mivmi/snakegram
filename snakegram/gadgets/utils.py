@@ -1,3 +1,4 @@
+import os
 import sys
 import asyncio
 import inspect
@@ -11,6 +12,24 @@ from types import GeneratorType
 T_1 = t.TypeVar('T_1')
 P_1 = te.ParamSpec('P_1')
 
+def env(name: str, default: t.Any, var_type: t.Type[T_1] = str) -> T_1:
+    """
+    Get an env variable and cast it to the given type.
+
+    Note: if the type is `bool`, values like "false", "no", and "0" are treated as False.
+    """
+    value = os.environ.get(name)
+
+    if value is None:
+        return default
+
+    if var_type is bool:
+        if isinstance(value, str):
+            value = value.lower() not in {'false', 'no', '0', ''}
+
+        return bool(value)
+
+    return var_type(value)
 
 #
 class decorator(t.Generic[P_1, T_1]):
@@ -287,3 +306,29 @@ async def maybe_await(value: t.Union[T_1, t.Awaitable[T_1]]) -> T_1:
         return await value
 
     return value
+
+
+# classes
+class ArcheDict(dict):
+    """
+    A dict subclass that can reset itself to its original state.
+
+    Handy for mutable configs or states that you want to revert
+    without rebuilding the dict from scratch.
+
+    Example:
+        >>> d = ArcheDict({'id': 10})
+        >>> d['id'] = 15
+        >>> d.reset()
+        >>> print(d['id'])
+        10
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._initial_state = self.copy()
+
+    def reset(self):
+        """Restore the dict to its initial contents."""
+        self.clear()
+        self.update(self._initial_state)

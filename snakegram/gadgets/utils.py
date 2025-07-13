@@ -1,11 +1,73 @@
+import sys
+import asyncio
 import inspect
 import typing as t
+import typing_extensions as te
 
+from functools import wraps, partial
 from types import GeneratorType
 
 
 T_1 = t.TypeVar('T_1')
+P_1 = te.ParamSpec('P_1')
 
+
+#
+class decorator(t.Generic[P_1, T_1]):
+    """
+    Base decorator to support optional arguments.
+
+    Example:
+    ```python
+    @decorator
+    def repeat(_func, count: int = 2):
+        @wraps(_func)
+        def wrapper(message: str):
+            for _ in range(count):
+                _func(message)
+        return wrapper
+
+    # Usage with arguments
+    example_1 = repeat(print, count=4)
+    example_1("Hello")
+
+    # Usage as a decorator, with or without arguments
+    @repeat  # or @repeat(count=4)
+    def example_2(message: str):
+        print(message, end=" ")
+
+    example_2("Hello")
+    ```
+    """
+
+    def __init__(self, fn: te.Callable[P_1, T_1]):
+        self.fn = fn
+    
+    def __call__(self, *args: P_1.args, **kwargs: P_1.kwargs) -> T_1:
+        if self._is_no_args(args, kwargs):
+            return self.fn(*args, **kwargs)
+
+        def wrapper(actual_fn):
+            return self.fn(actual_fn, *args, **kwargs)
+
+        return wrapper
+    
+    def __get__(self, instance, owner) :
+        def bound(*args: P_1.args, **kwargs: P_1.kwargs) -> T_1:
+            if self._is_no_args(args, kwargs):
+                return self.fn(instance or owner, *args, **kwargs)
+
+            def wrapper(actual_fn):
+                return self.fn(instance or owner, actual_fn, *args, **kwargs)
+            return wrapper
+
+        return bound
+
+    @staticmethod
+    def _is_no_args(args: t.Tuple, kwargs: t.Dict) -> bool:
+        return len(args) == 1 and callable(args[0]) and not kwargs
+
+#
 def to_string(data, indent: t.Optional[int] = None) -> str:
     """
     Convert a data into a formatted string.
@@ -131,10 +193,97 @@ def to_string(data, indent: t.Optional[int] = None) -> str:
 
     return wrapper(parser(data), level=0)
 
-
 def is_like_list(obj) -> t.TypeGuard[t.Iterable[T_1]]:
     """Return True if the object is iterable and not str, bytes, or bytearray."""
     return (
         hasattr(obj, '__iter__')
         and not isinstance(obj, (str, bytes, bytearray))
     )
+
+
+# asyncio helpers
+@decorator
+def to_async(
+    func: t.Callable[P_1, T_1],
+    executor: t.Optional[t.Any] = None
+) -> t.Callable[P_1, t.Awaitable[T_1]]:
+    """
+    Converts a sync function to async.
+
+    Args:
+        func (Callable): 
+            The sync function that will be converted to async.
+        executor (Optional[Any], optional): 
+            An `executor` object for running the function in a separate thread or process.
+            If `None`, the default `asyncio` executor is used.
+
+    Returns:
+        Awaitable[Callable]: new async function.
+
+    Example:
+    ```python
+    def sync_function(x: int) -> int:
+        time.sleep(2)
+        return x * 2
+
+    async_function = to_async(sync_function)
+    await async_function(5) # output 10
+    ```
+    """
+    if is_async(func):
+        raise ValueError('The function must be sync, not async.')
+
+    @wraps(func)
+    async def wrapper(*args: P_1.args, **kwargs: P_1.kwargs):
+        loop = get_event_loop()
+        return await loop.run_in_executor(executor, partial(func, *args, **kwargs))
+
+    return wrapper
+
+def is_async(
+    obj: t.Callable[P_1, T_1]
+) -> t.TypeGuard[t.Callable[P_1, t.Awaitable[T_1]]]:
+    """
+    Return True if the object is a coroutine function.
+    """
+    return inspect.iscoroutinefunction(obj)
+
+def get_event_loop():
+    """
+    Return the current event loop, or create one if none exists.
+
+    Returns:
+        asyncio.AbstractEventLoop: The active event loop.
+
+    Example:
+        >>> loop = get_event_loop()
+    """
+    if sys.platform == 'win32':
+        policy = asyncio.get_event_loop_policy()
+
+        if not isinstance(
+            policy,
+            asyncio.WindowsSelectorEventLoopPolicy
+        ):
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy()
+            )
+
+    # https://docs.python.org/3.7/library/asyncio-eventloop.html#asyncio.get_running_loop
+    if sys.version_info >= (3, 7):
+        try:
+            return asyncio.get_running_loop()
+
+        except RuntimeError:
+            policy = asyncio.get_event_loop_policy()
+            return policy.get_event_loop()
+    
+    else:
+        return asyncio.get_event_loop()
+
+async def maybe_await(value: t.Union[T_1, t.Awaitable[T_1]]) -> T_1:
+    """await the value if it is awaitable, otherwise return it directly."""
+    if inspect.isawaitable(value):
+        return await value
+
+    return value

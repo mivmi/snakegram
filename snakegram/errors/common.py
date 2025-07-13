@@ -8,4 +8,13 @@ class BaseError(Exception):
 
 class SecurityError(BaseError):
     """Raised when a security violation is detected."""
-    pass
+
+    @staticmethod
+    def check(
+        test: bool,
+        message: str = 'Security check failed'
+    ):
+        """Raise `SecurityError` if test is True."""
+
+        if test:
+            raise SecurityError(message)

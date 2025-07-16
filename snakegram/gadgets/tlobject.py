@@ -1,7 +1,7 @@
 import typing as t
 import typing_extensions as te
 
-from .utils import to_string
+from .utils import to_string, dualmethod
 from abc import ABC, abstractmethod
 
 
@@ -149,6 +149,7 @@ class TLObject(t.Generic[T], ABC):
 
 class TLRequest(TLObject[T], ABC):
     _id: int
+    _result_id: t.Optional[int] = None
 
     @abstractmethod
     def to_bytes(self, boxed: bool = True) -> bytes:
@@ -161,19 +162,8 @@ class TLRequest(TLObject[T], ABC):
             f'functions cannot be deserialized (pos: {reader.tell() - 4})'
         )
 
-    def _get_origin(self) -> t.Type['TLRequest']:
-        """
-        Returns the origin request object in case of nested TLRequest structures.
-
-        This method checks if the current instance is part of a nested request
-        structure by analyzing its generic base types. If it finds a matching
-        result type parameter, it recursively retrieves the origin request object.
-
-        Returns:
-            TLRequest: The origin request class.
-        """
+    def _get_origin(self) -> 'TLRequest':
         cls = self.__class__
-
         if cls.__orig_bases__:
             result_type, = t.get_args(cls.__orig_bases__[0])
 
@@ -183,26 +173,24 @@ class TLRequest(TLObject[T], ABC):
                     if args and args[0] == result_type:
                         return getattr(self, name)._get_origin()
 
-        return cls
+        return self
 
-    def _result_type(self) -> t.Optional[TLObject]:
-        """
-        Determines the expected result type of the request.
+    @dualmethod
+    def _result_type(obj) -> t.Optional[t.Tuple[TLObject]]:
+        if obj._result_id:
+            return get_group_types(obj._result_id)
 
-        This method inspects the class's generic type parameters to find
-        the expected response type after sending the request.
-
-        Returns:
-            t.Optional[TLObject]: The determined result type or `None` if unknown.
-        """
-
-        root = type(self._get_origin())
-        if root.__orig_bases__:
-            return t.get_args(root.__orig_bases__[0])[0]
+        # the return type is based on a generic
+        # to resolve the result type, the class must be init first
+        if not isinstance(obj, type):
+            root = obj._get_origin()
+            return root._result_type()
 
 
 def get_group_name(group_id: int):
+    """get group name for the given `group_id`.."""
     return TYPES_GROUP_MAP[group_id][1]
 
 def get_group_types(group_id: int):
+    """get types for the given `group_id`."""
     return tuple(TYPES_GROUP_MAP[group_id][0])

@@ -24,6 +24,10 @@ class SecurityError(BaseError):
         if test:
             raise SecurityError(message)
 
+class HandshakeFailedError(BaseError):
+    """Raised when the handshake fails"""
+    pass
+
 
 class TransportError(BaseError):
     """

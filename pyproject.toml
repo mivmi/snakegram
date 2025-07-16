@@ -62,6 +62,10 @@ version = {attr = "snakegram.about.__version__"}
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.3.5",
-    "pytest-cov >=6.1.1"
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1"
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

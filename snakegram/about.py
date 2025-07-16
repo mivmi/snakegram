@@ -84,3 +84,4 @@ __license__ = _cleandoc(
     '''
 )
 __copyright__ = __license__.split('\n', maxsplit=1)[0]
+__update_command__ = 'pip install -U snakegram'

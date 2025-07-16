@@ -503,13 +503,17 @@ def create_class(
         value=tree['name']['name']
     )
     result = utils.PyFormatter()
+    
+    family = None
+    result_type = tree['result_type']
 
-    if is_type:
+    if result_type['_'] == 'type':
         family = get_family_name(
-            tree['result_type']['name'],
-            tree['result_type']['namespace']
+            result_type['name'],
+            result_type['namespace']
         )
 
+    if is_type:
         types = module.get_variable(family, level=2)
 
         if types is None:
@@ -551,7 +555,6 @@ def create_class(
             force_import=True
         )
 
-        family = None
         if not base.startswith(constants.BASE_FUNCTION_CLASS):
             base = f'{constants.BASE_FUNCTION_CLASS}[{base}]'
 
@@ -589,8 +592,12 @@ def create_class(
             body(f'_id = {to_hex(object_id)}\n')
 
         if is_type:
-            body(f"_group_id = {to_hex(family)}\n")
-    
+            body(f'_group_id = {to_hex(family)}\n')
+        
+        else:
+            if family is not None: # not generic
+                body(f'_result_id = {to_hex(family)}\n')
+
         if tree['parameters']:
             body(
                 '\n',
@@ -1098,7 +1105,7 @@ def type_language_converter(
                 # __init__.py imports
                 init = get_or_create_module(init_path)
 
-                if family is not None:
+                if is_type:
                     init.add_import(family, module=path)
 
                 module.add_class(name, result)

@@ -86,6 +86,95 @@ class decorator(t.Generic[P_1, T_1]):
     def _is_no_args(args: t.Tuple, kwargs: t.Dict) -> bool:
         return len(args) == 1 and callable(args[0]) and not kwargs
 
+class dualmethod(t.Generic[P_1, T_1]):
+    """
+    a decorator that allows a method to be called both on a class and on object.
+
+    Example:
+    ```python
+    class MyClass:
+        @dualmethod
+        def greet(obj, name: str) -> None:
+            if isinstance(obj, type):
+                print(f"Hello {name} from class {obj.__name__!r}")
+
+            else:
+                print(f"Hello {name} from object of {obj.__class__.__name__!r}")
+
+    MyClass.greet("James")
+    MyClass().greet("James")
+    ```
+    """
+
+    def __init__(self, fn: te.Callable[t.Concatenate[object, P_1], T_1]):
+        self.fn = fn
+
+    def __call__(self, *args: P_1.args, **kwargs: P_1.kwargs) -> T_1:
+        return self.fn(*args, **kwargs)
+
+    def __get__(self, instance, owner) -> te.Callable[P_1, T_1]:
+        @wraps(self.fn)
+        def wrapper(*args: P_1.args, **kwargs: P_1.kwargs) -> T_1:
+            return self(instance or owner, *args, **kwargs)
+
+        return wrapper
+
+#
+@t.overload
+def retry(
+    count: int,
+    *,
+    start: int = 1,
+    sequence: None = ...
+) -> t.Iterable[int]: ...
+
+@t.overload
+def retry(
+    count: int,
+    *, start: int = 1,
+    sequence: t.Iterable[T_1]
+) -> t.Iterable[t.Tuple[int, T_1]]: ...
+
+def retry(
+    count: int = -1,
+    *,
+    start: int = 1,
+    sequence: t.Optional[t.Iterable[T_1]] = None
+) -> t.Iterator[t.Union[int, t.Tuple[int, T_1]]]:
+
+    """
+    yields numbers or (number, item), looping over items if given
+
+    Example:
+    >>> list(retry(3))
+    [1, 2, 3]
+    >>> list(retry(4, sequence=['a', 'b']))
+    [(1, 'a'), (2, 'b'), (3, 'a'), (4, 'b')]
+    """
+
+    _index = 0
+    _counter = start
+    _iterable = (
+        None
+        if sequence is None else
+        list(sequence) # range
+    )
+
+    while count == -1 or _counter <= count:
+
+        if _iterable is None:
+            yield _counter
+
+        else:
+            if not _iterable:
+                break  # is empty
+    
+            yield _counter, _iterable[_index]
+
+            _index = (_index + 1) % len(_iterable)
+
+        _counter += 1
+
 #
 def to_string(data, indent: t.Optional[int] = None) -> str:
     """
@@ -300,6 +389,21 @@ def get_event_loop():
     else:
         return asyncio.get_event_loop()
 
+async def cancel(*tasks: asyncio.Task):
+    """cancels given tasks and waits until they stop."""
+    for task in tasks:
+        if (
+            not isinstance(task, asyncio.Task)
+            or task.done()
+        ):
+            continue
+        
+        try:
+            task.cancel()
+            await task
+        except (Exception, asyncio.CancelledError):
+            pass
+    
 async def maybe_await(value: t.Union[T_1, t.Awaitable[T_1]]) -> T_1:
     """await the value if it is awaitable, otherwise return it directly."""
     if inspect.isawaitable(value):

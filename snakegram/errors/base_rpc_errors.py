@@ -2,7 +2,8 @@ import re
 import typing as t
 from .common import BaseError
 
-
+if t.TYPE_CHECKING:
+    from ..network.utils import Request
 
 RPC_ERRORS: t.Dict[str, 'RpcError'] = {}
 REGEX_RPC_ERRORS: t.Dict[re.Pattern, 'RpcError'] = {}
@@ -40,7 +41,7 @@ class RpcError(BaseError):
 
     def __init__(
         self,
-        request,
+        request: 'Request',
         message: str,
         error_code: t.Optional[int] = None
     ):
@@ -56,7 +57,7 @@ class RpcError(BaseError):
 
     @staticmethod
     def build(
-        request,
+        request: 'Request',
         message: str,
         error_code: int
     ):
@@ -86,7 +87,7 @@ class RpcError(BaseError):
                     k: int(v) if v.isdigit() else v
                     for k, v in match.groupdict().items()
                 }
-                return error_cls(**kwargs)
+                return error_cls(request, **kwargs)
 
         # If no specific error is found, return a general UnknownError instance
         return UnknownError(request, message, error_code)
@@ -102,7 +103,7 @@ class TimedoutError(RpcError, pattern='Timeout'):
     """
     error_code = -503
 
-    def __init__(self, request, message, error_code=None):
+    def __init__(self, request: 'Request', message, error_code=None):
         super().__init__(
             request,
             f'Timeout while fetching data: {message}',
@@ -198,7 +199,7 @@ class UnknownError(RpcError):
     """
     error_code = -500
 
-    def __init__(self, request, message, error_code = None):
+    def __init__(self, request: 'Request', message, error_code = None):
         super().__init__(
             request,
             f'{message!r}. This error should be reported '

@@ -3,6 +3,8 @@ from functools import lru_cache
 from random import randrange, randint
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 from ..gadgets.byteutils import long_to_bytes, bytes_to_long
 
 
@@ -35,6 +37,19 @@ def sha256(data: bytes) -> bytes:
     digit.update(data)
     return digit.finalize()
 
+def pbkdf2_sha512_hmac(
+    password: bytes,
+    salt: bytes,
+    iterations: int = 100_000
+) -> bytes:
+    """Computes a `512-bit` key using `PBKDF2` with `HMAC-SHA512`"""
+    kdf = PBKDF2HMAC(
+        hashes.SHA512(),
+        salt=salt,
+        length=64, # 512 // 8
+        iterations=iterations
+    )
+    return kdf.derive(password)
 
 def is_prime(n: int, trials: int = 16) -> bool:
     """Tests if a number is prime (Rabin Miller)."""

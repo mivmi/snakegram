@@ -30,7 +30,6 @@ class Handshake:
         state: 'State',
         invoke: t.Callable[['TLRequest'], 'Request'],
         *,
-        dc_id: t.Optional[int] = None,
         is_media: bool = False,
         public_key_getter: t.Callable[[t.List[int]], t.Tuple[int, crypto.PublicKey]] = None
     ):
@@ -38,10 +37,8 @@ class Handshake:
         self.state = state
         self.invoke = invoke
 
-        self.dc_id = dc_id or state.session.dc_id
         self.is_media = is_media
         self.public_key_getter = public_key_getter or crypto.get_public_key
-
 
     @property
     def done(self):
@@ -246,7 +243,7 @@ class Handshake:
                 # https://core.telegram.org/mtproto/auth_key#4-encrypted-data-payload-generation
                 logger.debug('Auth key generation: step [%d]', 4)
                 
-                dc_id = self.dc_id
+                dc_id = self.state.dc_id
                 server_nonce = result.server_nonce
 
                 if TEST_MODE:

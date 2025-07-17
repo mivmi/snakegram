@@ -73,11 +73,8 @@ class Connection:
         
     ):
 
-        self.session = session
         self.transport = transport
-        self.pfs_session = pfs_session
 
-        self.dc_id = dc_id
         self.is_cdn = is_cdn
         self.is_media = is_media
         self.use_ipv6 = use_ipv6
@@ -89,13 +86,13 @@ class Connection:
 
         # 
         self.state = State(
+            dc_id,
             session,
-            pfs_session=pfs_session
+            pfs_session=pfs_session,
         )
         self._handshake = Handshake(
             self.state,
             self.invoke,
-            dc_id=dc_id,
             is_media=is_media,
             public_key_getter=public_key_getter
         )
@@ -196,8 +193,7 @@ class Connection:
 
     def resend(self, *requests: Request):
         for request in requests:
-            request.set_msg_id(None)
-            request.set_container_id(None)
+            request.clear()
 
         self._request_queue.add(*requests)
         return requests[0] if len(requests) == 1 else tuple(requests)
@@ -242,13 +238,12 @@ class Connection:
     async def connect(self):
         """connect to the telegram server."""
 
-        dc_id = self.dc_id or self.session.dc_id
         last_error = None
 
         for attempt in retry(CONNECT_ATTEMPTS):
             logger.info(
                 'Trying to connect to dc %d (attempt %d/%d)...',
-                dc_id,
+                self.state.dc_id,
                 attempt,
                 CONNECT_ATTEMPTS
             )
@@ -259,7 +254,7 @@ class Connection:
 
             try:
                 address = self.transport.get_address(
-                    dc_id,
+                    self.state.dc_id,
                     is_cdn=self.is_cdn,
                     is_media=self.is_media,
                     use_ipv6=self.use_ipv6
@@ -362,7 +357,7 @@ class Connection:
 
             if reconnect:
                 logger.info('readding pending requests (Reconnect requested).')
-                
+    
                 msg_ids = []
                 for msg_id, request in self._pending_requests.items():
                     if not request.acked:
@@ -371,8 +366,7 @@ class Connection:
                 
                 for msg_id in msg_ids:
                     self._pending_requests.pop(msg_id, None)
-                
-            
+
             else:
                 await self._destroy(exception)
 
@@ -386,16 +380,10 @@ class Connection:
 
         logger.info(
             'Migrating dc from %d to %d',
-            self.dc_id or self.session.dc_id,
+            self.state.dc_id,
             dc_id
         )
-
-        self.dc_id = dc_id
-        self.session.set_dc(dc_id)
-
-        if self.pfs_session is not None:
-            self.pfs_session.set_dc(dc_id)
-
+        self.state.set_dc(dc_id)
         return await self.reconnect(exception)
 
     # private
@@ -541,9 +529,9 @@ class Connection:
             except errors.AuthKeyNotFoundError as exc:
                 logger.warning('Auth key not found, reconnecting...')
 
-                self.session.clear()
-                if self.pfs_session:
-                    self.pfs_session.clear()
+                self.state.session.clear()
+                if self.state.pfs_session:
+                    self.state.pfs_session.clear()
 
                 await self.reconnect(exc)
                 break

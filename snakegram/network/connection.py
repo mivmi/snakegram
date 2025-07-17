@@ -238,12 +238,13 @@ class Connection:
     async def connect(self):
         """connect to the telegram server."""
 
+        dc_id = self.state.dc_id
         last_error = None
 
         for attempt in retry(CONNECT_ATTEMPTS):
             logger.info(
                 'Trying to connect to dc %d (attempt %d/%d)...',
-                self.state.dc_id,
+                dc_id,
                 attempt,
                 CONNECT_ATTEMPTS
             )
@@ -254,7 +255,7 @@ class Connection:
 
             try:
                 address = self.transport.get_address(
-                    self.state.dc_id,
+                    dc_id,
                     is_cdn=self.is_cdn,
                     is_media=self.is_media,
                     use_ipv6=self.use_ipv6

@@ -348,6 +348,50 @@ def to_async(
 
     return wrapper
 
+@decorator
+def adaptive(
+    func: t.Callable[P_1, t.Union[t.Awaitable[T_1], T_1]]
+) -> t.Callable[P_1, t.Union[t.Awaitable[T_1], T_1]]:
+
+    """
+    Converts a function to handle both sync and async execution.
+
+    This decorator allows a function to be executed either syncly or asyncly,
+    depending whether the event loop is running.
+
+    Example:
+    ```python
+    def sync_function(x: int) -> int:
+        return x * 2
+
+    adaptive(sync_function)(5)
+    await adaptive(sync_function)(5)
+    ```
+    """
+
+    @wraps(func)
+    def wrapper(*args: P_1.args, **kwargs: P_1.kwargs):
+        loop = get_event_loop()
+
+        if is_async(func):
+            result = func(*args, **kwargs)
+            if not loop.is_running():
+                result = loop.run_until_complete(result)
+
+            return result
+
+        else:
+            if loop.is_running():
+                return loop.run_in_executor(
+                    None,
+                    partial(func, *args, **kwargs)
+                )
+
+            else:
+                return func(*args, **kwargs)
+
+    return wrapper
+
 def is_async(
     obj: t.Callable[P_1, T_1]
 ) -> t.TypeGuard[t.Callable[P_1, t.Awaitable[T_1]]]:

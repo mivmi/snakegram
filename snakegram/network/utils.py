@@ -24,15 +24,29 @@ MAX_CONTAINER_LENGTH = env('MAX_CONTAINER_LENGTH', 512, int)
 class State:
     def __init__(
         self,
+        dc_id: t.Optional[int],
         session: 'AbstractSession',
         pfs_session: t.Optional['AbstractPfsSession'] = None
     ):
+
+        self._dc_id = dc_id
         self.session = session
         self.pfs_session = pfs_session
 
         self._handshake_event = asyncio.Event()
         self.reset()
-    
+
+    @property
+    def dc_id(self):
+        return self._dc_id or self.session.dc_id
+
+    def set_dc(self, value: int):
+        self._dc_id = value
+        self.session.set_dc(value)
+
+        if self.pfs_session is not None:
+            self.pfs_session.clear()
+
     @property
     def ping_id(self):
         return self._ping_id
@@ -57,6 +71,7 @@ class State:
     def time_offset(self):
         return self.session.time_offset
 
+    
     def reset(self):
         # https://core.telegram.org/mtproto/description#session
         self._session_id = Long()
@@ -158,7 +173,7 @@ class Request(t.Generic[T]):
             query = query._get_origin()
 
         return type(query).__name__
-
+    
     def done(self):
         return self._future.done()
 
@@ -167,6 +182,13 @@ class Request(t.Generic[T]):
     
     def exception(self):
         return self._future.exception()
+
+    def clear(self):
+        self.msg_id = None
+        self.container_id = None
+
+        if self._future.done():
+            self._future = asyncio.Future()
 
     def set_msg_id(self, value: int):
         self.msg_id = value

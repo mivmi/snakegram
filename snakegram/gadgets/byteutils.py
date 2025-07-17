@@ -378,6 +378,19 @@ def bytes_to_long(value: bytes):
     """bytes to an unsigned long integer in big-endian order."""
     return int.from_bytes(value, byteorder='big', signed=False)
 
+# https://github.com/DrKLO/Telegram/blob/17067dfc6a1f69618a006b14e1741b75c64b276a/TMessagesProj/src/main/java/org/telegram/messenger/SRPHelper.java#L9
+def big_integer_bytes(value: int):
+    """Converts an integer to a 256-byte big-endian order."""
+    bytes_value = long_to_bytes(value)
+
+    if len(bytes_value) > 256:
+        return bytes_value[1:257]
+
+    elif len(bytes_value) < 256:
+        return bytes_value.rjust(256, b'\x00')
+
+    return bytes_value
+
 # circular import
 from ..tl.types.bool import TypeBool, BoolTrue, BoolFalse  # type: ignore
 from ..tl.mtproto.types import GzipPacked # type: ignore

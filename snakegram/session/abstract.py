@@ -13,7 +13,7 @@ class AbstractSession(ABC):
 
     @property
     @abstractmethod
-    def dc_id(self):
+    def dc_id(self) -> int:
         """the `dc_id` this session should connect to."""
         raise NotImplementedError
 

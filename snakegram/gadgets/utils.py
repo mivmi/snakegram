@@ -458,6 +458,143 @@ async def maybe_await(value: t.Union[T_1, t.Awaitable[T_1]]) -> T_1:
 
 
 # classes
+class Item:
+    __slots__ = ('value', 'eviction_value')
+
+    def __init__(
+        self,
+        value,
+        eviction_value: float = 0
+    ):
+
+        self.value = value
+        self.eviction_value = eviction_value
+
+class Cache:
+    """
+    A mini caching system with support for three different eviction policies:
+
+    - "LFU": items that are accessed less frequently are evicted first
+    - "LRU": items that haven't been accessed for the longest time are evicted first
+    - "TTL": items are first removed if they have expired,
+      if the cache is still over capacity, the oldest items may also be evicted
+
+    Example:
+    ```python
+    c = Cache(max_size=3)
+
+    c.add_or_update('key1', 10)
+    c.add_or_update('key2', 11)
+    c.add_or_update('key3', 12)
+    c.add_or_update('key4', 13)
+    c.get('key2')
+
+    for k, v in c:
+        print(k, v.value)
+
+    >>> key2 11
+    >>> key3 12
+    >>> key4 13
+    ```
+    """
+    def __len__(self):
+        return len(self._cache_data)
+
+    def __init__(
+        self,
+        max_size: int = 1000,
+        time_to_live: int = 3600,
+        eviction_policy: t.Literal['LFU', 'LRU', 'TTL'] = 'LFU'
+    ):
+
+        self.max_size = max_size
+        self.time_to_live = time_to_live
+        self.eviction_policy = eviction_policy
+    
+        self._cache_data: t.Dict[t.Any, Item] = {}
+
+    def pop(self, key):
+        result = self._cache_data.pop(key, None) 
+        if result:
+            return result.value
+
+    def get(self, key, is_value: bool = True):
+        item = self._cache_data.get(key)
+        
+        if isinstance(item, Item):
+            if self.eviction_policy == 'LFU':
+                item.eviction_value += 1
+
+            if self.eviction_policy == 'LRU':
+                item.eviction_value = time.monotonic()
+
+        if item:
+            return item.value if is_value else item
+
+    def check(self):
+        excess = len(self._cache_data) - self.max_size
+
+        if excess > 0:
+            if self.eviction_policy == 'TTL':
+                now = time.monotonic()
+                to_delete = []
+
+                for key, v in self._cache_data.items():
+                    if v.eviction_value < now:
+                        to_delete.append(key)
+
+                if to_delete:
+                    self.delete(*to_delete)
+
+                excess = len(self._cache_data) - self.max_size
+
+            if excess > 0:
+                items = sorted(
+                    self._cache_data.items(),
+                    key=lambda e: e[1].eviction_value
+                )
+                to_delete = (key for key, _ in items[:excess])
+
+                if to_delete:
+                    self.delete(*to_delete)
+
+    def delete(self, *keys):
+        for key in keys:
+            Cache.pop(self, key)
+
+    def add_or_update(self, key: t.Any, value, *, check: bool=True) -> Item:
+        item = Cache.get(self, key, is_value=False)
+
+        if item is None:
+            if self.eviction_policy == 'LFU':
+                item = Item(
+                    value,
+                    eviction_value=0
+                )
+
+            elif self.eviction_policy == 'LRU':
+                item = Item(
+                    value,
+                    eviction_value=time.monotonic()
+                )
+
+            elif self.eviction_policy == 'TTL':
+                item = Item(
+                    value,
+                    eviction_value=time.monotonic() + self.time_to_live
+                )
+
+            self._cache_data[key] = item
+
+            if check:
+                self.check()
+
+        item.value = value
+        return item
+
+    def __iter__(self):
+        return iter(self._cache_data.items())
+
 class Timer:
     """
     A resettable timer
@@ -502,7 +639,7 @@ class Timer:
 
         except asyncio.TimeoutError:
             if not self._stopped:
-                await maybe_await(self.callback(self))
+                await asyncio.shield(self.callback(self))
 
         except asyncio.CancelledError:
             pass
@@ -558,7 +695,6 @@ class Timer:
 
     def __repr__(self) -> str:
         return f'<Timer(remaining={self.remaining}, running={self.is_running()})>'
-
 
 class ArcheDict(dict):
     """

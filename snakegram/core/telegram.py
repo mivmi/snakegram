@@ -4,6 +4,7 @@ import platform
 import typing as t
 
 from .methods import Methods
+from .handlers import Handlers
 
 from .. import about, errors, helpers
 
@@ -27,7 +28,7 @@ DEFAULT_TRANSPORT = TcpTransport(codec=AbridgedCodec())
 DEFAULT_SESSION_CLASS = SqliteSession
 DEFAULT_PFS_SESSION_CLASS = MemoryPfsSession
 
-class Telegram(Methods):
+class Telegram(Handlers, Methods):
     _config: t.Optional[types.Config] = None
 
     def __init__(
@@ -97,6 +98,9 @@ class Telegram(Methods):
             session,
             transport.spawn(),
             pfs_session,
+            error_callback=self._error_callback,
+            result_callback=self._result_callback,
+            request_callback=self._request_callback,
             connected_callback=self._init_connection_callback
         )
         

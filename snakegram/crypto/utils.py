@@ -115,6 +115,7 @@ def is_safe_prime(p: int, g: int) -> bool:
     
     return True
 
+@lru_cache
 def pq_factorize(pq: bytes):
     """
     This function factors a natural number, provided in big-endian byte format, 
@@ -123,7 +124,6 @@ def pq_factorize(pq: bytes):
     """
     num = bytes_to_long(pq)
 
-    @lru_cache
     def brent(value: int):
 
         if not value & 1:

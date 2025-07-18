@@ -798,6 +798,7 @@ class Connection:
                 'sending "UpdatesTooLong" update '
                 'to trigger "updates.GetDifference" for full sync'
             )
+            await self.state.wait_for_handshake(TIMEOUT)
             await self._new_update_handler(types.updates.UpdatesTooLong())
 
     async def _bad_msg_notification_handler(self, message: mtproto.types.TypeBadMsgNotification):

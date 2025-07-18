@@ -1,5 +1,8 @@
 import typing as t
 
+EventType: t.TypeAlias = t.Literal['error', 'result', 'update', 'request']
+
+
 URL = t.NewType('URL', str)
 Host = t.NewType('Host', str)
 NetAddr: t.TypeAlias = t.Tuple[Host, int]

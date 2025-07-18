@@ -5,8 +5,9 @@ import typing as t
 
 from .methods import Methods
 from .handlers import Handlers
-
+from .internal import CacheEntities
 from .. import about, errors, helpers
+
 
 from ..tl import LAYER, types, functions
 from ..gadgets.tlobject import TLObject, TLRequest
@@ -45,6 +46,7 @@ class Telegram(Handlers, Methods):
         system_lang_code: str = 'en',
         params: t.Optional[dict] = None,
         transport: AbstractTransport = DEFAULT_TRANSPORT,
+        drop_update: bool = False,
         perfect_forward_secrecy: t.Union[str, bool, AbstractPfsSession] = False
     ):
 
@@ -78,7 +80,6 @@ class Telegram(Handlers, Methods):
                 'You can obtain them from https://my.telegram.org.'
             )
 
-
         self.api_id = int(api_id)
         self.api_hash = api_hash
         self.lang_pack = lang_pack
@@ -93,7 +94,7 @@ class Telegram(Handlers, Methods):
         self.system_version = system_version or uname.version
         self.params = params or {}
         
-
+        self.session = session
         self.connection = Connection(
             session,
             transport.spawn(),
@@ -101,10 +102,19 @@ class Telegram(Handlers, Methods):
             error_callback=self._error_callback,
             result_callback=self._result_callback,
             request_callback=self._request_callback,
+            updates_callback=self._updates_dispatcher,
             connected_callback=self._init_connection_callback
         )
-        
+        self.drop_update = drop_update
+
+        self._tasks = set()
         self._authorized = False
+
+        # Dict[models.StateId, UpdateState]
+        self._update_states = {}
+        self._channel_polling = set()
+
+        self._entities = CacheEntities(session)
 
     @t.overload
     async def __call__(self, query: TLRequest[T]) -> T: ...
@@ -148,8 +158,31 @@ class Telegram(Handlers, Methods):
         await self.connection.disconnect()
 
     async def wait_until_disconnected(self):
-        if self.connection._future:
-            await self.connection._future
+        try:
+            if self.connection._future:
+                await self.connection._future
+        
+        finally:
+            self._save_state_and_entities()
+
+    # privates
+    def _save_state_and_entities(self):
+        for _, item in self._entities:
+            self.session.upsert_entity(item.value)
+
+        for update_state in self._update_states.values():
+            self._save_state(update_state.state_info)
+
+    def _create_new_task(self, *cores: t.Coroutine):
+        result = []
+        for core in cores:
+            task = asyncio.create_task(core)
+
+            result.append(task)
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+
+        return result
 
     async def _init_connection_callback(self, connection: Connection):
         if not connection.is_cdn:

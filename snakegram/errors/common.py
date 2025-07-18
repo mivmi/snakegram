@@ -24,6 +24,10 @@ class SecurityError(BaseError):
         if test:
             raise SecurityError(message)
 
+class StopPropagation(BaseError):
+    """Stop event propagation to subsequent handlers"""
+    pass
+
 class HandshakeFailedError(BaseError):
     """Raised when the handshake fails"""
     pass

@@ -491,6 +491,7 @@ class Auth:
                 helpers.get_display_name(result.user)
             )
             self._authorized = True
+            await self._handle_updates_too_long()
 
         return result
 
@@ -652,6 +653,7 @@ class Auth:
                 helpers.get_display_name(result.user)
             )
             self._authorized = True
+            await self._handle_updates_too_long()
     
         return result
 

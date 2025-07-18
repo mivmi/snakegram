@@ -34,6 +34,7 @@ class State:
         self.pfs_session = pfs_session
 
         self._handshake_event = asyncio.Event()
+        self._new_session_event = asyncio.Event()
         self.reset()
 
     @property
@@ -126,15 +127,30 @@ class State:
 
         return self._salt
 
-    def start_handshake(self):
+    def on_new_session(self):
+        self._new_session_event.set()
+
+    def begin_handshake(self):
         self._handshake_event.clear()
+        self._new_session_event.clear()
     
-    def handshake_completed(self):
+    def complete_handshake(self):
         self._salt_valid_until = 0
         self._handshake_event.set()
 
     def is_handshake_complete(self):
         return self._handshake_event.is_set()
+    
+    async def wait_for_new_session(self, timeout: t.Optional[float] = None):
+        try:
+            await asyncio.wait_for(
+                self._new_session_event.wait(),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError(
+                'Timed out waiting for new session'
+            )
 
 
 class Request(t.Generic[T]):

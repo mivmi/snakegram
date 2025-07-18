@@ -1,5 +1,4 @@
 import typing as t
-
 from ...tl import types, functions
 from ...errors import UnauthorizedError
 
@@ -36,4 +35,5 @@ class Common:
         
         else:        
             self._authorized = True
+            self._entities.add_users(result[0])
             return result[0]

@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import asyncio
 import inspect
 import typing as t
@@ -457,6 +458,108 @@ async def maybe_await(value: t.Union[T_1, t.Awaitable[T_1]]) -> T_1:
 
 
 # classes
+class Timer:
+    """
+    A resettable timer
+
+    Starts a countdown for `n` seconds and calls the `callback` when time runs out,
+    unless it's reset or stopped before that
+        
+    Example:
+    ```python
+    
+    async def on_timeout(timer):
+        print('No activity detected.')
+    
+    timer = Timer(10, on_timeout)
+    timer.start()
+
+    ...
+    print(timer.remaining) # 2
+    await timer.reset(10)
+    print(timer.remaining) # 10
+
+    ```
+
+    """
+    def __init__(
+        self,
+        n: float,
+        callback: t.Callable[['Timer'], t.Any]
+    ):
+        self.n = n
+        self.callback = callback
+
+        self._event = asyncio.Event()
+        self._stopped = False
+        self._start_time: t.Optional[int] = None
+        self._timer_task: t.Optional[asyncio.Task] = None
+
+    async def _timer(self):
+        try:
+            self._start_time = time.time()
+            await asyncio.wait_for(self._event.wait(), self.n)
+
+        except asyncio.TimeoutError:
+            if not self._stopped:
+                await maybe_await(self.callback(self))
+
+        except asyncio.CancelledError:
+            pass
+    
+    @property
+    def remaining(self):
+        """Seconds remaining before the timer expires."""
+        if not self._start_time:
+            return 0.0
+
+        elapsed = time.time() - self._start_time
+        return max(0.0, self.n - elapsed)
+
+    def is_running(self) -> bool:
+        """Check if the timer is currently running."""
+        return (
+            self._timer_task is not None
+            and not self._timer_task.done()
+        )
+
+    async def stop(self):
+        """Stop the timer."""
+        self._stopped = True
+        self._start_time = None
+
+        if self.is_running():
+            self._timer_task.cancel()
+            try:
+                await self._timer_task
+            except asyncio.CancelledError:
+                pass
+        self._event.set()
+
+    async def done(self):
+        """Stop the timer and run the callback."""
+        await self.stop()
+        await self.callback(self)
+
+    def start(self):
+        """Start the timer if it's not already running."""
+        if not self.is_running():
+            self._event.clear()
+            self._stopped = False
+            self._timer_task = asyncio.create_task(self._timer())
+
+        return self
+
+    async def reset(self, n: float):
+        """Restart the timer with a new duration."""
+        self.n = n
+        await self.stop()
+        return self.start()
+
+    def __repr__(self) -> str:
+        return f'<Timer(remaining={self.remaining}, running={self.is_running()})>'
+
+
 class ArcheDict(dict):
     """
     A dict subclass that can reset itself to its original state.

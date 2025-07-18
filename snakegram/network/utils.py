@@ -141,6 +141,17 @@ class State:
     def is_handshake_complete(self):
         return self._handshake_event.is_set()
     
+    async def wait_for_handshake(self, timeout: t.Optional[float] = None):
+        try:
+            await asyncio.wait_for(
+                self._handshake_event.wait(),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError(
+                'Timed out waiting for handshake'
+            )
+
     async def wait_for_new_session(self, timeout: t.Optional[float] = None):
         try:
             await asyncio.wait_for(

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import typing as t
 from random import getrandbits
@@ -18,6 +19,7 @@ if t.TYPE_CHECKING:
 TEST_MODE = env('TEST_MODE', False, bool)
 FORCE_TEMP_KEY = env('FORCE_TEMP_KEY', False, bool)
 
+TIMEOUT = env('TIMEOUT', 10, int)
 TEMP_KEY_LIFETIME = env('TEMP_KEY_LIFETIME', 86400, int)
 CREATE_KEY_ATTEMPTS = env('CREATE_KEY_ATTEMPTS', 3, int)
 
@@ -45,7 +47,7 @@ class Handshake:
         return self.state.is_handshake_completed()
 
     async def do_handshake(self):
-        self.state.start_handshake()
+        self.state.begin_handshake()
 
         if not self.state.session.auth_key:
             logger.debug('perm auth key not found')
@@ -99,8 +101,14 @@ class Handshake:
             else:
                 logger.info('using valid temp auth key')
 
-        self.state.handshake_completed()
-    
+        try:
+            await self.state.wait_for_new_session(TIMEOUT)
+        
+        except asyncio.TimeoutError:
+            pass
+
+        self.state.complete_handshake()
+
     async def bind_temp_auth_key(self, auth_key: crypto.AuthKey, created_at: int):
         nonce = Long()
         perm_key = self.state.session.auth_key
@@ -153,11 +161,11 @@ class Handshake:
         try:
             request = self.invoke(bind_temp_auth_key)
             request.set_msg_id(msg_id)
-            self.state.pfs_session.auth_key.set_auth_key(auth_key.key)
+            self.state.auth_key.set_auth_key(auth_key.key)
 
             if not await request:
                 logger.error('failed to bind temp auth key')
-                self.state.pfs_session.auth_key.clear()
+                self.state.auth_key.clear()
 
                 if not FORCE_TEMP_KEY:
                     logger.warning(
@@ -179,7 +187,7 @@ class Handshake:
             return True
 
         except errors.EncryptedMessageInvalidError as exc:
-            self.state.pfs_session.auth_key.clear()
+            self.state.auth_key.clear()
             # if the perm auth key is older than 60s both perm and temp keys must be discarded
             # both keys must then be regenerated 
             # for details, see: https://core.telegram.org/api/pfs

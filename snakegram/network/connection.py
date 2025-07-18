@@ -785,6 +785,7 @@ class Connection:
             message.server_salt
         )
 
+        self.state.on_new_session()
         # old server salts may be expired or missing
         # server provides a fresh salt upon new session creation.
         self.state.set_server_salt(message.server_salt)

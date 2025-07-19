@@ -18,6 +18,13 @@ class Operation(enum.Enum):
         return self in (Operation.OR, Operation.AND, Operation.NOT)
 
 
+class EventType(enum.Enum):
+    NULL = enum.auto()
+    ERROR = enum.auto()
+    RESULT = enum.auto()
+    UPDATE = enum.auto()
+    REQUEST = enum.auto()
+
 class EntityType(enum.IntEnum):
     BOT = enum.auto()
     USER = enum.auto()

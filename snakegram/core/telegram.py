@@ -105,7 +105,7 @@ class Telegram(Handlers, Methods):
             result_callback=self._result_callback,
             request_callback=self._request_callback,
             updates_callback=self._updates_dispatcher,
-            connected_callback=self._init_connection_callback
+            init_connection_callback=self._init_connection_callback
         )
         self.drop_update = drop_update
 

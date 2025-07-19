@@ -10,6 +10,7 @@ from .. import about, helpers
 
 
 from ..tl import LAYER, types, functions
+from ..gadgets.utils import adaptive
 from ..gadgets.tlobject import TLObject
 
 from ..session import SqliteSession, MemoryPfsSession
@@ -111,6 +112,12 @@ class Telegram(Handlers, Methods):
 
         self._tasks = set()
         self._authorized = False
+        
+        #
+        self._error_handlers = []
+        self._update_handlers = []
+        self._result_handlers = []
+        self._request_handlers = []
 
         # Dict[models.StateId, UpdateState]
         self._update_states = {}
@@ -132,12 +139,14 @@ class Telegram(Handlers, Methods):
     def is_connected(self):
         return self.connection.is_connected()
 
+    @adaptive
     async def connect(self):
         await self.connection.connect()
 
     async def disconnect(self):
         await self.connection.disconnect()
 
+    @adaptive
     async def wait_until_disconnected(self):
         try:
             if self.connection._future:

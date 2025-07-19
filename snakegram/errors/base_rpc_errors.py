@@ -51,9 +51,9 @@ class RpcError(BaseError):
 
         details = self.message
         if self.error_code != -1:
-            details = f'[error_code: {self.error_code}]\n\t{details}'
+            details = f'[error_code: {self.error_code}] {details}'
 
-        super().__init__(f'{details} (caused by {self.request!r})')
+        super().__init__(f'{details} (caused by {request.name!r})')
 
     @staticmethod
     def build(

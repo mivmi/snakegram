@@ -1,8 +1,13 @@
 import typing as t
 
 from .tl import types
-from .enums import EntityType
-from .gadgets.utils import to_string
+from .enums import EventType, EntityType
+from .gadgets.utils import to_string, Local
+
+if t.TYPE_CHECKING:
+    from .core import Telegram
+    from .network.utils import Request
+    from .gadgets.byteutils import TLObject
 
 
 class Entity:
@@ -119,3 +124,104 @@ class StateInfo:
                 self.entity.id,
                 access_hash=self.entity.access_hash
             )
+
+class EventContext:
+    def __bool__(self):
+        return bool(self._client)
+
+    def __repr__(self):
+        return self.to_string()
+
+    def to_dict(self):
+        return {
+            'type': self.type,
+            'client': self.client,
+            'error': self.error,
+            'result': self.result,
+            'update': self.update,
+            'request': self.request 
+        }
+    
+    def to_string(self, indent: t.Optional[int] = None):
+        return to_string(self, indent=indent)
+
+    def __init__(
+        self,
+        client: t.Optional['Telegram'] = None,
+        *,
+        error: t.Optional[Exception] = None,
+        result: t.Optional['TLObject'] = None,
+        update: t.Optional[types.TypeUpdate] = None,
+        request: t.Optional['Request'] = None
+    ):
+        
+        self.client = client
+        self.error = error
+        self.result = result
+        self.update = update
+        self.request = request
+
+    @property
+    def type(self) -> EventType:
+        if self.client is None:
+            return EventType.NULL
+
+        elif self.error is not None:
+            return EventType.ERROR
+        
+        elif self.result is not None:
+            return EventType.RESULT
+        
+        elif self.update is not None:
+            return EventType.UPDATE
+        
+        else:
+            return EventType.REQUEST
+
+    @property
+    def data(self):
+        return (
+            self.error 
+            or self.result
+            or self.update
+            or self.request
+            or None
+        )
+
+    def is_set(self):
+        return self.type is not EventType.NULL
+
+    def is_error(self):
+        return self.type is EventType.ERROR
+
+    def is_result(self):
+        return self.type is EventType.RESULT
+
+    def is_update(self):
+        return self.type is EventType.UPDATE
+
+    def is_request(self):
+        return self.type is EventType.REQUEST
+
+    @classmethod
+    def _set_event(
+        cls,
+        client: t.Optional['Telegram'] = None,
+        *,
+        error: t.Optional[Exception] = None,
+        result: t.Optional['TLObject'] = None,
+        update: t.Optional[types.TypeUpdate] = None,
+        request: t.Optional['Request'] = None
+    ):
+        _local_event._ctx.set(
+            cls(
+                client,
+                error=error,
+                result=result,
+                update=update,
+                request=request
+            )
+        )
+
+
+_local_event: EventContext = Local(default=EventContext())

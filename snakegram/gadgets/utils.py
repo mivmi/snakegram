@@ -3,15 +3,20 @@ import sys
 import time
 import asyncio
 import inspect
+import operator
+
 import typing as t
 import typing_extensions as te
 
-from functools import wraps, partial
 from types import GeneratorType
+from contextvars import ContextVar
+from functools import wraps, partial
 
 
 T_1 = t.TypeVar('T_1')
 P_1 = te.ParamSpec('P_1')
+
+_NOTING = object()
 
 def env(name: str, default: t.Any, var_type: t.Type[T_1] = str) -> T_1:
     """
@@ -695,6 +700,83 @@ class Timer:
 
     def __repr__(self) -> str:
         return f'<Timer(remaining={self.remaining}, running={self.is_running()})>'
+
+class Lookup:
+    """
+    Descriptor for dynamic attribute/method lookup from a context-local object.
+
+    This descriptor allows `Local` instances to forward operations such as `__str__`,
+    `__getattr__`, and `__getitem__` to the actual object stored in the current context
+
+    """
+
+    def __init__(self,fn: t.Callable, is_attr: bool = False):
+        self.fn = fn
+        self.is_attr = is_attr
+
+    def __get__(self, local: 'Local', owner: t.Type['Local']):
+        try:
+            obj = local._ctx.get()
+
+        except LookupError:
+            obj = (
+                owner
+                if local._ctx_default is _NOTING else
+                local._ctx_default
+            )
+
+        result = partial(
+            self.fn,
+            local._ctx.get(obj)
+        )
+        return result() if self.is_attr else result
+
+class Local(t.Generic[T_1]):
+    """
+    A context-local container for dynamic scoped values using `ContextVar`.
+
+    `Local` allows you to bind a value to the current
+    execution context (`asyncio.Task` / `threading.Thread`) in a way that's safe and isolated.
+    It behaves like the underlying object forwarding attribute access, item access,
+    and magic methods such as `__str__`, `__getitem__`, etc.
+    
+    Example:
+    ```python
+    
+    message = Local(default='empty')
+
+    async def print_message():
+        print(message)
+
+    async def create_task(id: int):
+        set_local(message, f'Hello from task {id}')
+        await asyncio.sleep(0.1)  # simulate async delay
+        await print_message()
+
+    print(message) # empty
+    await asyncio.gather(
+        create_task(1),
+        create_task(2)
+    )
+    ```
+    """
+
+    def __init__(self, ctx: ContextVar[T_1] = None, default=_NOTING):
+        if ctx is None:
+            ctx = ContextVar(f'local<{id(self)}>')
+
+        object.__setattr__(self, '_ctx', ctx)
+        object.__setattr__(self, '_ctx_default', default)
+
+    __str__ = Lookup(str)
+    __repr__ = Lookup(repr)
+    __bool__ = Lookup(bool)
+
+    __getattr__ = Lookup(getattr)
+    __setattr__ = Lookup(setattr)
+    __delattr__ = Lookup(delattr)
+
+    __class__ = Lookup(type, is_attr=True)
 
 class ArcheDict(dict):
     """

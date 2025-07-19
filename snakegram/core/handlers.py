@@ -5,6 +5,7 @@ from itertools import chain
 from .internal.event_handler import EventHandler
 
 from .. import alias, errors
+from ..models import _local_event
 from ..gadgets.utils import dualmethod, decorator
 
 
@@ -282,6 +283,7 @@ class Handlers:
 
         update_type = type(update).__name__
         logger.debug(f'Start handling update: {update_type!r}')
+        _local_event._set_event(self, update=update)
 
         for handler in self.get_handlers('update'):
 
@@ -310,6 +312,11 @@ class Handlers:
         logger.debug(
             f'Start handling error for request {request_id}',
             exc_info=error
+        )
+        _local_event._set_event(
+            self,
+            error=error,
+            request=request
         )
 
         for handler in self.get_handlers('error'):
@@ -360,7 +367,11 @@ class Handlers:
 
         request_id = request.msg_id or id(request)
         logger.debug(f'Start handling result for request {request_id}.')
-
+        _local_event._set_event(
+            self,
+            result=result,
+            request=request
+        )
         for handler in self.get_handlers('result'):
 
             try:
@@ -409,6 +420,7 @@ class Handlers:
             'Start pre-send '
             f'request handling for {request.name!r} ({request_id})'
         )
+        _local_event._set_event(self, request=request)
 
         for handler in self.get_handlers('request'):
             print(handler)

@@ -69,8 +69,7 @@ class Connection:
         updates_callback: t.Optional[t.Callable[[TLObject], t.Awaitable]] = None,
         
         public_key_getter: t.Callable[[t.List[int]], t.Tuple[int, 'PublicKey']] = None,
-        connected_callback: t.Optional[t.Callable[['Connection'], t.Awaitable]] = None,
-        
+        init_connection_callback: t.Optional[t.Callable[['Connection'], t.Awaitable]] = None
     ):
 
         self.transport = transport
@@ -82,7 +81,7 @@ class Connection:
         self._error_callback = error_callback
         self._result_callback = result_callback
         self._updates_callback = updates_callback
-        self._connected_callback = connected_callback
+        self._init_connection_callback = init_connection_callback
 
         # 
         self.state = State(
@@ -191,13 +190,6 @@ class Connection:
         self._request_queue.add(*requests)
         return requests[0] if len(requests) == 1 else tuple(requests)
 
-    def resend(self, *requests: Request):
-        for request in requests:
-            request.clear()
-
-        self._request_queue.add(*requests)
-        return requests[0] if len(requests) == 1 else tuple(requests)
-
     def is_connected(self):
         return (
             self._event.is_set()
@@ -283,9 +275,10 @@ class Connection:
                 try:
                     await self._handshake.do_handshake()
 
-                    if callable(self._connected_callback):
-                        await self._connected_callback(self)
+                    if callable(self._init_connection_callback):
+                        await self._init_connection_callback(self)
 
+                    self.state.on_init()
                     self._create_new_task(self._ping_worker())
 
                 except errors.HandshakeFailedError as exc:
@@ -362,9 +355,9 @@ class Connection:
                 msg_ids = []
                 for msg_id, request in self._pending_requests.items():
                     if not request.acked:
-                        self.resend(request)
+                        self._resend(request)
                         msg_ids.append(msg_id)
-                
+
                 for msg_id in msg_ids:
                     self._pending_requests.pop(msg_id, None)
 
@@ -394,7 +387,10 @@ class Connection:
 
         await cancel(*self._tasks)
         if self._future and not self._future.done():
-            if exception:
+            # only set an exception if the Future is actually being awaited
+            # to avoid "Future exception was never retrieved" warnings
+            blocked = getattr(self._future, '_asyncio_future_blocking', None)
+            if blocked and exception:
                 self._future.set_exception(exception)
 
             else:
@@ -524,7 +520,7 @@ class Connection:
             except asyncio.TimeoutError:
                 continue
 
-            except asyncio.CancelledError:
+            except (OSError, asyncio.CancelledError):
                 break
 
             except errors.AuthKeyNotFoundError as exc:
@@ -793,12 +789,12 @@ class Connection:
         if not (self.is_cdn or self.is_media):
             # send `UpdatesTooLong` update to indicate missed update gap,
             # triggering the client to call `updates.GetDifference` for a full sync
-    
+
             logger.debug(
                 'sending "UpdatesTooLong" update '
                 'to trigger "updates.GetDifference" for full sync'
             )
-            await self.state.wait_for_handshake(TIMEOUT)
+            await self.state.wait_for_init(TIMEOUT)
             await self._new_update_handler(types.updates.UpdatesTooLong())
 
     async def _bad_msg_notification_handler(self, message: mtproto.types.TypeBadMsgNotification):
@@ -820,7 +816,8 @@ class Connection:
                     'resending request with new server salt.',
                     message.bad_msg_id,
                 )
-                self.resend(*requests)
+                
+                self._resend(*requests)
 
         else:
             logger.debug(
@@ -838,6 +835,16 @@ class Connection:
                 )
 
     # helpers
+    def _resend(self, *requests: Request):
+        for request in requests:
+            is_done = request.done()
+
+            request.clear()
+            if is_done:
+                request.add_done_callback(self._on_complete_process)
+
+        self._request_queue.add(*requests)
+
     def _create_new_task(self, *cores: t.Coroutine):
         tasks = []
         for core in cores:

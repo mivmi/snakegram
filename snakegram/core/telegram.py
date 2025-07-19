@@ -6,19 +6,21 @@ import typing as t
 from .methods import Methods
 from .handlers import Handlers
 from .internal import CacheEntities
-from .. import about, errors, helpers
+from .. import about, helpers
 
 
 from ..tl import LAYER, types, functions
-from ..gadgets.tlobject import TLObject, TLRequest
+from ..gadgets.tlobject import TLObject
 
 from ..session import SqliteSession, MemoryPfsSession
 from ..session.abstract import AbstractSession, AbstractPfsSession
 
 from ..network import Connection, datacenter
+from ..network.utils import Request
 from ..network.codec import AbridgedCodec
 from ..network.transport import TcpTransport
 from ..network.transport.abstract import AbstractTransport
+
 
 
 T = t.TypeVar('T')
@@ -117,36 +119,15 @@ class Telegram(Handlers, Methods):
         self._entities = CacheEntities(session)
 
     @t.overload
-    async def __call__(self, query: TLRequest[T]) -> T: ...
-
+    def __call__(self, query: TLObject[T]) -> Request[T]: ...
     @t.overload
-    async def __call__(self, *queries: TLObject[T], ordered: bool = False) -> asyncio.Future[t.Tuple[T, ...]]: ...
+    def __call__(self, *queries: TLObject[T], ordered: bool = False) -> t.Tuple[Request[T], ...]: ...
 
-    async def __call__(self, *queries: TLObject[T], ordered: bool = False):
-        try:
-            return await self.connection.invoke(
-                *queries,
-                ordered=ordered
-            )
- 
-        except errors.SeeOtherError as exc:
-            me = await self.get_me()
-            if me is not None:
-                logger.exception(
-                    'Got a "SeeOtherError" from the server, but the session appears to be valid. '
-                    'to prevent accidental loss of the "auth_key", migration was skipped.'
-                    'this is an unexpected situation that may indicate a server-side problem or an internal bug. '
-                    '**Please report this issue.**'
-                )
-
-                raise
-
-            await self.connection.migrate(
-                exc.dc_id,
-                exception=exc
-            )
-            return await self.connection.resend(exc.request)
-
+    def __call__(self, *queries: TLObject[T], ordered: bool = False):
+        return self.connection.invoke(
+            *queries,
+            ordered=ordered
+        )
 
     def is_connected(self):
         return self.connection.is_connected()

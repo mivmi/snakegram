@@ -642,7 +642,19 @@ class Auth:
 
         try:
             result = await self(request)
-        
+
+        except errors.SeeOtherError as exc:
+            self._phone_code_hash_map.pop(phone, None)
+            await self.connection.migrate(
+                exc.dc_id,
+                exception=exc
+            )
+            return await self.sign_in(
+                phone_or_token,
+                code_settings=code_settings,
+                email_verification=email_verification
+            )
+
         except errors.PhoneCodeExpiredError:
             self._phone_code_hash_map.pop(phone, None)
             raise
@@ -727,6 +739,16 @@ class Auth:
                             settings=code_settings
                         )
                     )
+            except errors.SeeOtherError as exc:
+                self._phone_code_hash_map.pop(phone, None)
+                await self.connection.migrate(
+                    exc.dc_id,
+                    exception=exc
+                )
+                return await self.send_code(
+                    phone_number,
+                    code_settings=code_settings
+                )
 
             except errors.AuthRestartError as exc:
                 logger.error(f'Sending code failed due to: {exc}')

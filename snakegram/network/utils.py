@@ -33,6 +33,7 @@ class State:
         self.session = session
         self.pfs_session = pfs_session
 
+        self._init_event = asyncio.Event()
         self._handshake_event = asyncio.Event()
         self._new_session_event = asyncio.Event()
         self.reset()
@@ -127,10 +128,14 @@ class State:
 
         return self._salt
 
+    def on_init(self):
+        self._init_event.set()
+
     def on_new_session(self):
         self._new_session_event.set()
 
     def begin_handshake(self):
+        self._init_event.clear()
         self._handshake_event.clear()
         self._new_session_event.clear()
     
@@ -141,6 +146,17 @@ class State:
     def is_handshake_complete(self):
         return self._handshake_event.is_set()
     
+    async def wait_for_init(self, timeout: t.Optional[float] = None):
+        try:
+            await asyncio.wait_for(
+                self._init_event.wait(),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError(
+                'Timed out waiting for init'
+            )
+
     async def wait_for_handshake(self, timeout: t.Optional[float] = None):
         try:
             await asyncio.wait_for(
@@ -176,8 +192,6 @@ class Request(t.Generic[T]):
         error_callback: t.Callable[[RpcError, 'Request'], t.Any] = None,
         result_callback: t.Callable[[T, 'Request'], t.Any] = None
     ):
-        super().__init__()
-
         self.query = query
         self.msg_id = msg_id
         self.invoke_after = invoke_after
@@ -190,7 +204,7 @@ class Request(t.Generic[T]):
         self.container_id: t.Optional[int] = None
         self._future: asyncio.Future[T] = asyncio.Future()
 
-    def __await__(self) -> t.Generator[t.Any, None, T]:
+    def __await__(self):
         return self._future.__await__()
 
     @property
@@ -214,7 +228,7 @@ class Request(t.Generic[T]):
         self.msg_id = None
         self.container_id = None
 
-        if self._future.done():
+        if self.done():
             self._future = asyncio.Future()
 
     def set_msg_id(self, value: int):
@@ -232,13 +246,14 @@ class Request(t.Generic[T]):
                 await self.result_callback(result, self)
 
             except BaseError as err: 
-                return await self.set_exception(err)
+                await self.set_exception(err)
+                return
 
             except Exception:
                 pass
 
         if not self.done():
-            return self._future.set_result(result)
+            self._future.set_result(result)
 
     async def set_exception(self, exception: Exception):
         if isinstance(exception, RpcError):
@@ -253,7 +268,7 @@ class Request(t.Generic[T]):
                     pass
 
         if not self.done():
-            return self._future.set_exception(exception)
+            self._future.set_exception(exception)
 
 class RequestQueue:
     def __init__(
@@ -268,7 +283,7 @@ class RequestQueue:
         self._event = asyncio.Event()
         self._deque: deque[Request] = deque()
         self._tasks: t.Set[asyncio.Task] = set()
-    
+
     def add(self, *requests: 'Request'):
         task = asyncio.create_task(
             self._request_callback_process(*requests)

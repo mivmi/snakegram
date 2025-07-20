@@ -57,3 +57,28 @@ class EntityType(enum.IntEnum):
                     return etype
 
         raise ValueError(f'invalid entity type char: {char!r}')
+
+
+class MessageEntityType(enum.IntEnum):
+    Mention = 0
+    Hashtag = 1
+    BotCommand = 2
+    Url = 3
+    EmailAddress = 4
+    Bold = 5
+    Italic = 6
+    Code = 7
+    Pre = 8
+    PreCode = 9
+    TextUrl = 10
+    MentionName = 11
+    Cashtag = 12
+    PhoneNumber = 13
+    Underline = 14
+    Strikethrough = 15
+    BlockQuote = 16
+    BankCardNumber = 17
+    MediaTimestamp = 18
+    Spoiler = 19
+    CustomEmoji = 20
+    ExpandableBlockQuote = 21

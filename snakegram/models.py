@@ -1,7 +1,7 @@
 import typing as t
 
+from . import enums
 from .tl import types
-from .enums import EventType, EntityType
 from .gadgets.utils import to_string, Local
 
 if t.TYPE_CHECKING:
@@ -31,7 +31,7 @@ class Entity:
     def __init__(
         self,
         id: int,
-        type: t.Optional[EntityType],
+        type: t.Optional[enums.EntityType],
         access_hash: t.Optional[int],
         *,
         name: t.Optional[str] = None,
@@ -51,7 +51,7 @@ class Entity:
 
     @property
     def is_bot(self):
-        return self.type is EntityType.Bot
+        return self.type is enums.EntityType.Bot
 
 
 # state
@@ -162,21 +162,21 @@ class EventContext:
         self.request = request
 
     @property
-    def type(self) -> EventType:
+    def type(self) -> enums.EventType:
         if self.client is None:
-            return EventType.Bull
+            return enums.EventType.Null
 
         elif self.error is not None:
-            return EventType.Error
+            return enums.EventType.Error
         
         elif self.result is not None:
-            return EventType.Result
+            return enums.EventType.Result
         
         elif self.update is not None:
-            return EventType.Update
+            return enums.EventType.Update
         
         else:
-            return EventType.Request
+            return enums.EventType.Request
 
     @property
     def data(self):
@@ -189,19 +189,19 @@ class EventContext:
         )
 
     def is_set(self):
-        return self.type is not EventType.Null
+        return self.type is not enums.EventType.Null
 
     def is_error(self):
-        return self.type is EventType.Error
+        return self.type is enums.EventType.Error
 
     def is_result(self):
-        return self.type is EventType.Result
+        return self.type is enums.EventType.Result
 
     def is_update(self):
-        return self.type is EventType.Update
+        return self.type is enums.EventType.Update
 
     def is_request(self):
-        return self.type is EventType.Result
+        return self.type is enums.EventType.Request
 
     @classmethod
     def _set_event(
@@ -223,5 +223,25 @@ class EventContext:
             )
         )
 
+
+class MessageEntity:
+    def __init__(
+        self,
+        type: enums.MessageEntityType,
+        offset: int,
+        length: int,
+        user_id: t.Optional[int] = None,
+        argument: t.Optional[str] = None,
+        custom_emoji_id: t.Optional[int] = None,
+        media_timestamp: t.Optional[int] = None
+    ):
+        self.type = type
+        self.offset = offset
+        self.length = length
+        
+        self.user_id = user_id
+        self.argument = argument
+        self.custom_emoji_id = custom_emoji_id
+        self.media_timestamp = media_timestamp
 
 _local_event: EventContext = Local(default=EventContext())

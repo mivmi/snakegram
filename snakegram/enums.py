@@ -1,37 +1,36 @@
 import enum
 
 class Operation(enum.Enum):
-    IN = enum.auto()
-    EQ = enum.auto()
-    LT = enum.auto()
-    GT = enum.auto()
-    LE = enum.auto()
-    GE = enum.auto()
-    NE = enum.auto()
-    OR = enum.auto()
-    AND = enum.auto()
-    NOT = enum.auto()
-    TYPE_OF = enum.auto()
+    In = enum.auto()
+    Eq = enum.auto()
+    Lt = enum.auto()
+    Gt = enum.auto()
+    Le = enum.auto()
+    Ge = enum.auto()
+    Ne = enum.auto()
+    Or = enum.auto()
+    And = enum.auto()
+    Not = enum.auto()
+    TypeOf = enum.auto()
 
     @property
     def is_logical(self):
-        return self in (Operation.OR, Operation.AND, Operation.NOT)
-
+        return self in (Operation.Or, Operation.And, Operation.Not)
 
 class EventType(enum.Enum):
-    NULL = enum.auto()
-    ERROR = enum.auto()
-    RESULT = enum.auto()
-    UPDATE = enum.auto()
-    REQUEST = enum.auto()
+    Null = enum.auto()
+    Error = enum.auto()
+    Result = enum.auto()
+    Update = enum.auto()
+    Request = enum.auto()
 
 class EntityType(enum.IntEnum):
-    BOT = enum.auto()
-    USER = enum.auto()
-    GROUP = enum.auto()
-    CHANNEL = enum.auto()
-    MEGAGROUP = enum.auto()
-    GIGAGROUP = enum.auto()
+    Bot = enum.auto()
+    User = enum.auto()
+    Group = enum.auto()
+    Channel = enum.auto()
+    Megagroup = enum.auto()
+    Gigagroup = enum.auto()
 
     @property
     def char(self):
@@ -39,11 +38,11 @@ class EntityType(enum.IntEnum):
 
     @property
     def is_user(self):
-        return self in (EntityType.BOT, EntityType.USER)
+        return self in (EntityType.Bot, EntityType.User)
     
     @property
     def is_group(self):
-        return self is EntityType.GROUP
+        return self is EntityType.Group
 
     @property
     def is_channel(self):

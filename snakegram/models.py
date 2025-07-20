@@ -51,7 +51,7 @@ class Entity:
 
     @property
     def is_bot(self):
-        return self.type is EntityType.BOT
+        return self.type is EntityType.Bot
 
 
 # state
@@ -164,19 +164,19 @@ class EventContext:
     @property
     def type(self) -> EventType:
         if self.client is None:
-            return EventType.NULL
+            return EventType.Bull
 
         elif self.error is not None:
-            return EventType.ERROR
+            return EventType.Error
         
         elif self.result is not None:
-            return EventType.RESULT
+            return EventType.Result
         
         elif self.update is not None:
-            return EventType.UPDATE
+            return EventType.Update
         
         else:
-            return EventType.REQUEST
+            return EventType.Request
 
     @property
     def data(self):
@@ -189,19 +189,19 @@ class EventContext:
         )
 
     def is_set(self):
-        return self.type is not EventType.NULL
+        return self.type is not EventType.Null
 
     def is_error(self):
-        return self.type is EventType.ERROR
+        return self.type is EventType.Error
 
     def is_result(self):
-        return self.type is EventType.RESULT
+        return self.type is EventType.Result
 
     def is_update(self):
-        return self.type is EventType.UPDATE
+        return self.type is EventType.Update
 
     def is_request(self):
-        return self.type is EventType.REQUEST
+        return self.type is EventType.Result
 
     @classmethod
     def _set_event(

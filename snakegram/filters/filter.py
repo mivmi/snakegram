@@ -13,19 +13,19 @@ T = t.TypeVar('T')
 P = te.ParamSpec('P')
 
 OPERATION_STRATEGIES = {
-    Operation.EQ: operator.eq,
-    Operation.NE: operator.ne,
-    Operation.LT: operator.lt,
-    Operation.LE: operator.le,
-    Operation.GT: operator.gt,
-    Operation.GE: operator.ge,
-    Operation.IN: operator.contains,
-    Operation.NOT: operator.not_,
+    Operation.Eq: operator.eq,
+    Operation.Ne: operator.ne,
+    Operation.Lt: operator.lt,
+    Operation.Le: operator.le,
+    Operation.Gt: operator.gt,
+    Operation.Ge: operator.ge,
+    Operation.In: operator.contains,
+    Operation.Not: operator.not_,
 
     #
-    Operation.OR: lambda a, b: a or b,
-    Operation.AND: lambda a, b: a and b,
-    Operation.TYPE_OF: lambda a, b: (
+    Operation.Or: lambda a, b: a or b,
+    Operation.And: lambda a, b: a and b,
+    Operation.TypeOf: lambda a, b: (
         issubclass(a, b)
         if isclass(a) else
         isinstance(a, b)
@@ -35,40 +35,40 @@ OPERATION_STRATEGIES = {
 
 class BaseFilter(ABC):
     def __lt__(self, other: t.Any):
-        return FilterExpr(Operation.LT, self, other)
+        return FilterExpr(Operation.Le, self, other)
 
     def __gt__(self, other: t.Any):
-        return FilterExpr(Operation.GT, self, other)
+        return FilterExpr(Operation.Gt, self, other)
 
     def __le__(self, other: t.Any):
-        return FilterExpr(Operation.LE, self, other)
+        return FilterExpr(Operation.Le, self, other)
 
     def __ge__(self, other: t.Any):
-        return FilterExpr(Operation.GE, self, other)
+        return FilterExpr(Operation.Ge, self, other)
 
     def __eq__(self, other: t.Any):
-        return FilterExpr(Operation.EQ, self, other)
+        return FilterExpr(Operation.Eq, self, other)
 
     def __ne__(self, other: t.Any):
-        return FilterExpr(Operation.NE, self, other)
-
-    def __and__(self, other: t.Any):
-        return FilterExpr(Operation.AND, self, other)
+        return FilterExpr(Operation.Ne, self, other)
 
     def __or__(self, other: t.Any):
-        return FilterExpr(Operation.OR, self, other)
+        return FilterExpr(Operation.Or, self, other)
+
+    def __and__(self, other: t.Any):
+        return FilterExpr(Operation.And, self, other)
 
     def __invert__(self):
-        return FilterExpr(Operation.NOT, self)
+        return FilterExpr(Operation.Not, self)
 
     def __lshift__(self, other: t.Any):
-        return FilterExpr(Operation.IN, other, self)
+        return FilterExpr(Operation.In, other, self)
 
     def __rshift__(self, other: t.Any):
-        return FilterExpr(Operation.IN, self, other)
+        return FilterExpr(Operation.In, self, other)
 
     def __mod__(self, other: t.Any):
-        return FilterExpr(Operation.TYPE_OF, self, other)
+        return FilterExpr(Operation.TypeOf, self, other)
 
     @abstractmethod
     async def evaluate(self, value: t.Any) -> t.Any:
@@ -115,13 +115,13 @@ class FilterExpr(BaseFilter):
         left = await resolve(self.left)
     
         # Short-circuit logical operations
-        if self.op is Operation.NOT:
+        if self.op is Operation.Not:
             return strategy(left)
         
-        if self.op is Operation.OR and left:
+        if self.op is Operation.Or and left:
             return left
         
-        if self.op is Operation.AND and not left:
+        if self.op is Operation.And and not left:
             return False
 
         return strategy(left, await resolve(self.right))

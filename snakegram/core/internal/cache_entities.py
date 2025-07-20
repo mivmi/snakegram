@@ -49,9 +49,9 @@ class CacheEntities(Cache):
             if user.access_hash and not user.min:
                 name = helpers.get_display_name(user)
                 user_type = (
-                    enums.EntityType.BOT 
+                    enums.EntityType.Bot 
                     if user.bot else
-                    enums.EntityType.USER
+                    enums.EntityType.User
                 )
         
                 value = models.Entity(
@@ -86,11 +86,11 @@ class CacheEntities(Cache):
             if access_hash and not is_min:
                 name = helpers.get_display_name(chat)
                 chat_type = (
-                    enums.EntityType.MEGAGROUP
+                    enums.EntityType.Megagroup
                     if chat.megagroup else (
-                        enums.EntityType.GIGAGROUP
+                        enums.EntityType.Gigagroup
                         if getattr(chat, 'gigagroup', None) else 
-                        enums.EntityType.CHANNEL
+                        enums.EntityType.Channel
                     )
                 )
 

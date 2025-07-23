@@ -29,7 +29,7 @@ class Updates:
     ):
 
         for update in updates.updates:
-            update.__chats = updates.chats
+            update._chats = updates.chats
             update._users = updates.users
 
         for item in updates.chats:
@@ -95,22 +95,24 @@ class Updates:
                 )
             ):
                 update = await self._prepare_updates(update)
-                return await self._handle_seq_updates(update)
+                await self._handle_seq_updates(update)
 
             elif isinstance(update, types.updates.UpdateShort):
-                return await self._handle_single_update(update.update)
+                await self._handle_single_update(update.update)
 
             elif isinstance(update, types.updates.UpdatesTooLong):
-                return await self._handle_updates_too_long()
+                await self._handle_updates_too_long()
             
-
             elif isinstance(update, (
                     types.updates.UpdateShortMessage,
-                    types.updates.UpdateShortChatMessage,
-                    types.updates.UpdateShortSentMessage
+                    types.updates.UpdateShortChatMessage
                 )
             ):
-                return await self._handle_short_update(update)
+                await self._handle_short_update(update)
+
+            elif isinstance(update, types.updates.UpdateShortSentMessage):
+                update_state = self._get_update_state(None)
+                await self._fetch_difference(update_state)
 
         except Exception:
             logger.exception(f'Failed to process update due to unexpected error: {update}')
@@ -278,19 +280,6 @@ class Updates:
                 pts_count=update.pts_count
             )
 
-        elif isinstance(update, types.updates.UpdateShortSentMessage):
-            transformed = types.UpdateNewMessage(
-                message=types.Message(
-                    id=update.id,
-                    pts=update.pts,
-                    pts_count=update.pts_count,
-                    date=update.date,
-                    media=update.media,
-                    entities=update.entities,
-                    ttl_period=update.ttl_period
-                )
-            )
-        
         else:
             logger.warning(f'Unexpected short update type: {update}')
             return 

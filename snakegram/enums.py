@@ -60,25 +60,25 @@ class EntityType(enum.IntEnum):
 
 
 class MessageEntityType(enum.IntEnum):
-    Mention = 0
-    Hashtag = 1
-    BotCommand = 2
-    Url = 3
-    EmailAddress = 4
-    Bold = 5
-    Italic = 6
-    Code = 7
-    Pre = 8
-    PreCode = 9
-    TextUrl = 10
-    MentionName = 11
-    Cashtag = 12
-    PhoneNumber = 13
-    Underline = 14
-    Strikethrough = 15
-    BlockQuote = 16
-    BankCardNumber = 17
-    MediaTimestamp = 18
-    Spoiler = 19
-    CustomEmoji = 20
-    ExpandableBlockQuote = 21
+    Mention = enum.auto()
+    Hashtag = enum.auto()
+    BotCommand = enum.auto()
+    Url = enum.auto()
+    EmailAddress = enum.auto()
+    Bold = enum.auto()
+    Italic = enum.auto()
+    Code = enum.auto()
+    Pre = enum.auto()
+    PreCode = enum.auto()
+    TextUrl = enum.auto()
+    MentionName = enum.auto()
+    Cashtag = enum.auto()
+    PhoneNumber = enum.auto()
+    Underline = enum.auto()
+    Strikethrough = enum.auto()
+    BlockQuote = enum.auto()
+    BankCardNumber = enum.auto()
+    MediaTimestamp = enum.auto()
+    Spoiler = enum.auto()
+    CustomEmoji = enum.auto()
+    ExpandableBlockQuote = enum.auto()

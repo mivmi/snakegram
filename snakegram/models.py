@@ -225,23 +225,44 @@ class EventContext:
 
 
 class MessageEntity:
+    def __repr__(self):
+        return self.to_string()
+    
+    def to_dict(self):
+        return {
+            'type': self.type,
+            'offset': self.offset,
+            'length': self.length,
+            'url': self.url,
+            'user_id': self.user_id,
+            'collapsed': self.collapsed,
+            'lang_code': self.lang_code,
+            'custom_emoji_id': self.custom_emoji_id
+        }
+
+    def to_string(self, indent: t.Optional[int] = None):
+        return to_string(self, indent=indent)
+
     def __init__(
         self,
         type: enums.MessageEntityType,
         offset: int,
         length: int,
+        url: t.Optional[str] = None,
         user_id: t.Optional[int] = None,
-        argument: t.Optional[str] = None,
+        collapsed: t.Optional[bool] = None,
+        lang_code: t.Optional[str] = None,
         custom_emoji_id: t.Optional[int] = None,
-        media_timestamp: t.Optional[int] = None
     ):
+
         self.type = type
         self.offset = offset
         self.length = length
         
+        self.url = url
         self.user_id = user_id
-        self.argument = argument
+        self.collapsed = collapsed
+        self.lang_code = lang_code
         self.custom_emoji_id = custom_emoji_id
-        self.media_timestamp = media_timestamp
 
 _local_event: EventContext = Local(default=EventContext())

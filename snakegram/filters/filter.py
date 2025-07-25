@@ -35,7 +35,7 @@ OPERATION_STRATEGIES = {
 
 class BaseFilter(ABC):
     def __lt__(self, other: t.Any):
-        return FilterExpr(Operation.Le, self, other)
+        return FilterExpr(Operation.Lt, self, other)
 
     def __gt__(self, other: t.Any):
         return FilterExpr(Operation.Gt, self, other)
@@ -104,7 +104,7 @@ class FilterExpr(BaseFilter):
     async def evaluate(self, value: t.Any):
         async def resolve(operand):
             if isinstance(operand, BaseFilter):
-                operand = operand.evaluate(value)
+                operand = await operand.evaluate(value)
 
             return await maybe_await(operand)
 

@@ -12,7 +12,7 @@ from .handshake import Handshake
 from .. import errors
 from ..tl import types, mtproto
 from ..gadgets.tlobject import TLObject
-from ..gadgets.utils import env, retry, cancel, to_async
+from ..gadgets.utils import Timer, env, retry, cancel, to_async
 from ..gadgets.byteutils import Reader
 
 if t.TYPE_CHECKING:
@@ -31,6 +31,7 @@ TIMEOUT = env('TIMEOUT', 10, int)
 CONNECT_TIMEOUT = env('CONNECT_TIMEOUT', 10, int)
 
 CONNECT_ATTEMPTS = env('CONNECT_ATTEMPTS', 5, int)
+MEDIA_CONNECTION_IDLE_TIMEOUT = env('MEDIA_CONNECTION_IDLE_TIMEOUT ', 60, int)
 
 #
 MIN_VALID_SALTS = env('MIN_VALID_SALTS', 5, int)
@@ -525,11 +526,7 @@ class Connection:
 
             except errors.AuthKeyNotFoundError as exc:
                 logger.warning('Auth key not found, reconnecting...')
-
-                self.state.session.clear()
-                if self.state.pfs_session:
-                    self.state.pfs_session.clear()
-
+                self.state.active_session.clear()
                 await self.reconnect(exc)
                 break
 
@@ -906,3 +903,73 @@ class Connection:
         0X6533A8E4: _new_session_created_handler,
         0X36B199EF: _bad_msg_notification_handler
     }
+
+class MediaConnection(Connection):
+    def __init__(
+        self,
+        session,
+        transport,
+        *,
+        dc_id = None,
+        is_cdn = False,
+        use_ipv6 = False,
+        error_callback = None,
+        result_callback = None,
+        request_callback = None,
+        public_key_getter = None,
+        init_connection_callback = None
+    ):
+        super().__init__(
+            session,
+            transport,
+            None,
+            dc_id=dc_id,
+            is_cdn=is_cdn,
+            is_media=True,
+            use_ipv6=use_ipv6,
+            error_callback=error_callback,
+            result_callback=result_callback,
+            request_callback=request_callback,
+            public_key_getter=public_key_getter,
+            init_connection_callback=init_connection_callback
+        )
+        
+        self._lock = asyncio.Lock()
+        self._active_session = 0
+        self._disconnect_timer = Timer(
+            MEDIA_CONNECTION_IDLE_TIMEOUT,
+            lambda _: self._disconnect()
+        )
+
+    def release(self):
+        self._active_session -= 1
+
+        if self._active_session <= 0:
+            self._active_session = 0
+            self._disconnect_timer.start()
+
+    async def connect(self):
+        async with self._lock:
+            if self._disconnect_timer.is_running():
+                await self._disconnect_timer.stop()
+
+            await super().connect()
+            self._active_session += 1
+
+    async def disconnect(self, exception = None, reconnect = False):
+        async with self.lock:
+            if reconnect:
+                if self._reconnect_event.is_set():
+                    await self.wait(TIMEOUT)
+                    return 
+
+                return await super().disconnect(exception, reconnect)
+
+            self.release()
+
+    async def _disconnect(self):
+        async with self._lock:
+            if self._active_session > 0:
+                return 
+
+            await super().disconnect()

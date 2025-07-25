@@ -1,5 +1,7 @@
 import typing as t
+from pathlib import Path
 
+LikeFile: t.TypeAlias = t.Union[str, Path, t.BinaryIO]
 EventType: t.TypeAlias = t.Literal['error', 'result', 'update', 'request']
 
 

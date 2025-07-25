@@ -5,7 +5,7 @@ from random import randrange, randint
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from ..gadgets.byteutils import long_to_bytes, bytes_to_long
+from ..gadgets.byteutils import Int, long_to_bytes, bytes_to_long
 
 
 def xor(term1: bytes, term2: bytes) -> bytes:
@@ -22,6 +22,12 @@ def xor(term1: bytes, term2: bytes) -> bytes:
         raise ValueError('Input byte sequences must have the same length.')
 
     return bytes([x ^ y for x, y in zip(term1, term2)])
+
+def md5(data: bytes) -> bytes:
+    """computes the `MD5` hash of the given data"""
+    digit = hashes.Hash(hashes.MD5())
+    digit.update(data)
+    return digit.finalize()
 
 def sha1(data: bytes) -> bytes:
     """computes the `SHA-1` hash of the given data."""
@@ -166,3 +172,12 @@ def pq_factorize(pq: bytes):
     p, q = sorted((g, num // g))
     return long_to_bytes(p), long_to_bytes(q)
 
+
+# https://core.telegram.org/api/end-to-end#sending-encrypted-files
+def get_key_fingerprint(key: bytes, iv: bytes):
+    digest = md5(key + iv)
+
+    # fingerprint = substr(digest, 0, 4) XOR substr(digest, 4, 4)
+    fingerprint = xor(digest[:4], digest[4: 4 + 4])
+
+    return Int.from_bytes(fingerprint)

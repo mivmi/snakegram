@@ -203,18 +203,23 @@ class EventContext:
             or None
         )
 
+    @property
     def is_set(self):
         return self.type is not enums.EventType.Null
 
+    @property
     def is_error(self):
         return self.type is enums.EventType.Error
 
+    @property
     def is_result(self):
         return self.type is enums.EventType.Result
 
+    @property
     def is_update(self):
         return self.type is enums.EventType.Update
 
+    @property
     def is_request(self):
         return self.type is enums.EventType.Request
 

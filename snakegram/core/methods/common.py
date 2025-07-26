@@ -1,14 +1,13 @@
-import logging
 import typing as t
 
 from ... import errors, alias, helpers
 from ...tl import types, functions
+from ...models import _local_event as event
 from ...gadgets.utils import split_list, is_like_list
 
 if t.TYPE_CHECKING:
     from ..telegram import Telegram
 
-logger = logging.getLogger(__name__)
 
 EntityType: t.TypeAlias = t.Union[types.TypeUser, types.TypeChat]
 FullEntityType: t.TypeAlias = t.Union[
@@ -50,7 +49,8 @@ class Common:
             self: 'Telegram',
             targets: alias.LikeEntity,
             *,
-            full: t.Literal[False] = False
+            full: t.Literal[False] = False,
+            force_request: bool = False
         ) -> EntityType: ...
 
         @t.overload
@@ -67,6 +67,7 @@ class Common:
             targets: t.List[alias.LikeEntity],
             *,
             full: t.Literal[False] = False,
+            force_request: bool = False,
             limit_per_request: int = 200,
         ) -> t.List[EntityType]: ...
 
@@ -83,6 +84,7 @@ class Common:
         targets: t.Union[alias.LikeEntity, t.List[alias.LikeEntity]],
         *,
         full: bool = False,
+        force_request: bool = False,
         limit_per_request: int = 200
     ) -> t.Union[
         EntityType,
@@ -100,6 +102,9 @@ class Common:
             full (bool, optional):
                 Whether to fetch full information for the entities. Defaults to False.
 
+            force_request (bool):
+                If True, forces a fresh request even if cached data is available. 
+                Defaults to False.
 
             limit_per_request (int, optional):
                 Maximum number of entities per API request. Defaults to 200.
@@ -150,14 +155,43 @@ class Common:
                         if item.id == peer_id:
                             if not full:
                                 results[idx] = item
-
                             else:
                                 entity = helpers.cast_to_input_peer(item)
 
                             break
-
             else:
                 entity = cache_entity.to_input_peer()
+
+                # if `get_entity` is called while handling an update, the required data
+                # might already be included in the update
+                # we cache this data in `_prepare_updates`, so we can avoid making
+                # an extra request by using the cached version instead.
+                # this only applies when `full` is False and `force_request` is not set.
+                if event.is_update and not full and not force_request:
+                    peer_id = helpers.get_peer_id(entity, raise_error=False)
+
+                    if isinstance(entity, types.InputPeerUser):
+                        value = next(
+                            (
+                                u
+                                for u in getattr(event.update, '_users', [])
+                                if peer_id == helpers.get_peer_id(u, raise_error=False)
+                            ),
+                            None
+                        )
+                    else:
+                        value = next(
+                            (
+                                c
+                                for c in getattr(event.update, '_chats', [])
+                                if peer_id == helpers.get_peer_id(c, raise_error=False)
+                            ),
+                            None
+                        )
+
+                    if value is not None:
+                        results[idx] = value
+                        continue
 
             if isinstance(entity, types.InputPeerUser):
                 item = helpers.cast_to_input_user(entity)

@@ -3,7 +3,6 @@ import sys
 import time
 import asyncio
 import inspect
-import operator
 
 import typing as t
 import typing_extensions as te
@@ -306,6 +305,19 @@ def to_string(data, indent: t.Optional[int] = None) -> str:
         return result
 
     return wrapper(parser(data), level=0)
+
+def split_list(seq: t.List[T_1], size: int):
+    """Split the list into smaller parts.
+    
+    Example:
+        >>> list(split_list([1, 2, 3, 4, 5], 2))
+        [[1, 2], [3, 4], [5]]
+    """
+    if size <= 0:
+        raise ValueError('size must be > 0')
+
+    for i in range(0, len(seq), size):
+        yield seq[i:i + size]
 
 def is_like_list(obj) -> t.TypeGuard[t.Iterable[T_1]]:
     """Return True if the object is iterable and not str, bytes, or bytearray."""

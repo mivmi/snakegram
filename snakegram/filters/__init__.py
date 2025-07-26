@@ -6,7 +6,10 @@ from .filter import (
 )
 from .proxy_filter import ProxyFilter
 
+magic = ProxyFilter()
+
 __all__ = [
+    'magic',
     'BaseFilter',
     'FilterExpr',
     'CustomFilter',

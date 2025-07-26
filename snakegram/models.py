@@ -53,6 +53,21 @@ class Entity:
     def is_bot(self):
         return self.type is enums.EntityType.Bot
 
+    def to_input_peer(self):
+        if self.type.is_user:
+            return types.InputPeerUser(
+                self.id,
+                access_hash=self.access_hash
+            )
+        
+        if self.type.is_group:
+            return types.InputPeerChat(self.id)
+        
+        if self.type.is_channel:
+            return types.InputPeerChannel(
+                self.id,
+                access_hash=self.access_hash
+            )
 
 # state
 class StateId:

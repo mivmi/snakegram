@@ -29,7 +29,7 @@ class CacheEntities(Cache):
 
         return value
 
-    def get(self, id: int) -> models.Entity:
+    def get(self, id: int) -> t.Optional[models.Entity]:
         result =  super().get(id)
 
         if result is None:

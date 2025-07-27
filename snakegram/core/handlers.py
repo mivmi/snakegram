@@ -190,7 +190,6 @@ class Handlers:
         """
         return obj._register_handler('result', callback, filter_expr=filter_expr)
 
-
     @decorator
     @dualmethod
     def on_request(
@@ -242,13 +241,13 @@ class Handlers:
         event_type: alias.EventType,
         *,
         scope: t.Literal['all', 'local', 'global'] = 'all'
-    ) -> chain[EventHandler]:
+    ) -> t.Iterable[EventHandler]:
         """
-        Retrieve event handlers for a given event type and scope.
+        Get event handlers for a given event type and scope.
 
         Args:
             event_type (alias.EventType):
-                The type of event handlers to retrieve.
+                The type of event handlers.
 
             scope (Literal['all', 'local', 'global'], optional):
                 The scope of handlers to include:
@@ -267,15 +266,83 @@ class Handlers:
 
             scope = 'global'
 
-        attrs = []
-    
-        if scope in {'all', 'local'}:
-            attrs.append(f'_{event_type}_handlers')
+        def _iter_handlers(): 
+            if scope in ('all', 'local'):
+                yield from getattr(
+                    obj,
+                    f'_{event_type}_handlers',
+                    []
+                )
 
-        if scope in {'all', 'global'}:
-            attrs.append(f'_global_{event_type}_handlers')
+            if scope in ('all', 'global'):
+                handlers = getattr(
+                    obj,
+                    f'_global_{event_type}_handlers',
+                    []
+                )
 
-        return chain(*[getattr(obj, e, []) for e in attrs])
+                if isinstance(obj, type):
+                    yield from handlers
+
+                else:
+                    for handler in handlers:
+                        if handler not in obj._disabled_global_handlers:
+                            yield handler
+
+        return _iter_handlers()
+
+    @classmethod
+    def is_global_handler(cls, handler: EventHandler) -> bool:
+        """check if the handler is registered as a global handler."""
+
+        for handler_list in [
+            cls._global_error_handlers,
+            cls._global_update_handlers,
+            cls._global_result_handlers,
+            cls._global_request_handlers
+        ]:
+            if handler in handler_list:
+                return True
+        return False
+
+    def enable_global_handler(self: 'Telegram', handler: EventHandler):
+        """
+        Enable a previously disabled global handler.
+        
+        Args:
+            handler (EventHandler): The global handler to enable.
+ 
+        Returns:
+            bool: True if the handler was enabled, False if it was not disabled before.
+
+        """
+        if handler not in self._disabled_global_handlers:
+            return False
+
+        self._disabled_global_handlers.discard(handler)
+        return True
+
+    def disable_global_handler(self: 'Telegram', handler: EventHandler):
+        """
+        Disable a global handler for this instance.
+        
+        global handlers are enabled by default for all instances.
+        use this method to disable a global handler only for the current instance.
+        
+        Args:
+            handler (EventHandler): The global handler to disable.
+        
+        Returns:
+            bool: True if the handler was successfully disabled, False if the handler was already disabled.
+        """
+        if handler in self._disabled_global_handlers:
+            return False
+        
+        if not self.is_global_handler(handler):
+            raise ValueError(f'Handler {handler.name!r} is not a global handler.')
+
+        self._disabled_global_handlers.add(handler)
+        return True
 
     #
     async def _update_callback(self, update: 'TypeUpdate'):

@@ -120,6 +120,7 @@ class Telegram(Handlers, Methods):
         self._update_handlers = []
         self._result_handlers = []
         self._request_handlers = []
+        self._disabled_global_handlers = set()
 
         # Dict[models.StateId, UpdateState]
         self._update_states = {}

@@ -609,7 +609,6 @@ class Updates:
             self._channel_polling.add(update_state)
             await update_state.reset_auto_fetch_timer()
 
-
     async def remove_channel_polling(self: 'Telegram', entity: alias.LikeEntity):
         """Stops polling updates from a public channel or supergroup.
 

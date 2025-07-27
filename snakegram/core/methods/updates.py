@@ -373,26 +373,23 @@ class Updates:
                     for update in result.other_updates:
                         await self._handle_single_update(update)
 
-                    # no need to handle `new_messages` and `new_encrypted_messages` here:
-                    # they are already dispatched as `UpdateNewMessage` and `UpdateNewEncryptedMessage`
-                    # via `other_updates`.
+                    for message in result.new_messages:
+                        update = types.update.UpdateNewMessage(
+                            message,
+                            pts=state.pts,
+                            pts_count=0
+                        )
+                        await self._handle_single_update(update) 
 
-                    # for message in result.new_messages:
-                    #     update = types.update.UpdateNewMessage(
-                    #         message,
-                    #         pts=state.pts,
-                    #         pts_count=0
-                    #     )
-                    #     await self._handle_single_update(update) 
-
-                    # for qts, message in enumerate(result.new_encrypted_messages,
-                    #     start=state_info.qts - 1
-                    # ):
-                    #     update = types.update.UpdateNewEncryptedMessage(
-                    #         message,
-                    #         qts=qts
-                    #     )
-                    #     await self._handle_single_update(update) 
+                    for qts, message in enumerate(
+                        result.new_encrypted_messages,
+                        start=state_info.qts - 1
+                    ):
+                        update = types.update.UpdateNewEncryptedMessage(
+                            message,
+                            qts=qts
+                        )
+                        await self._handle_single_update(update) 
 
                     if isinstance(result, types.updates.DifferenceSlice):
                         logger.debug('difference slice: fetching more differences')
@@ -459,13 +456,16 @@ class Updates:
                     for update in result.other_updates:
                         await self._handle_single_update(update)
 
-                    # for message in result.new_messages:
-                    #     update = types.update.UpdateNewChannelMessage(
-                    #         message,
-                    #         pts=result.pts,
-                    #         pts_count=0
-                    #     )
-                    #     await self._handle_single_update(update)
+                    # in polling mode, no need to handle `new_messages` and `new_encrypted_messages` here:
+                    # they are already included as `UpdateNewMessage` and `UpdateNewEncryptedMessage` in `other_updates`.
+                    if not update_state.is_polling:
+                        for message in result.new_messages:
+                            update = types.update.UpdateNewChannelMessage(
+                                message,
+                                pts=result.pts,
+                                pts_count=0
+                            )
+                            await self._handle_single_update(update)
 
                     if result.final:
                         logger.debug(

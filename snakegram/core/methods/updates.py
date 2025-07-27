@@ -3,7 +3,7 @@ import logging
 import typing as t
 
 from ..internal import UpdateState
-from ... import models, errors, helpers
+from ... import alias, models, errors, helpers
 from ...tl import types, functions
 from ...gadgets.utils import env
 
@@ -12,6 +12,7 @@ if t.TYPE_CHECKING:
 
 T = t.TypeVar('T')
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 # https://core.telegram.org/api/updates
@@ -109,10 +110,6 @@ class Updates:
                 )
             ):
                 await self._handle_short_update(update)
-
-            elif isinstance(update, types.updates.UpdateShortSentMessage):
-                update_state = self._get_update_state(None)
-                await self._fetch_difference(update_state)
 
         except Exception:
             logger.exception(f'Failed to process update due to unexpected error: {update}')
@@ -287,14 +284,18 @@ class Updates:
         await self._handle_single_update(transformed)
 
     async def _handle_single_update(self: 'Telegram', update):
-        if getattr(update, 'pts', None):
-            await self._handle_pts_update(update)
+        try:
+            if getattr(update, 'pts', None):
+                await self._handle_pts_update(update)
 
-        elif getattr(update, 'qts', None):
-            await self._handle_qts_update(update)
+            elif getattr(update, 'qts', None):
+                await self._handle_qts_update(update)
 
-        else:
-            await self._process_update(update)
+            else:
+                await self._process_update(update)
+
+        except Exception:
+            logger.exception(f'Failed to process update due to unexpected error: {update}')
     
     async def _handle_updates_too_long(self: 'Telegram'):
         logger.info('update too long: get current state')
@@ -303,7 +304,7 @@ class Updates:
             state = await self(functions.updates.GetState())
             update_state = self._get_update_state(None)
 
-            if not self.drop_update:
+            if update_state.state_info.pts > 0 and not self.drop_update:
                 await self._fetch_difference(update_state)
 
             update_state.state_info.pts = state.pts
@@ -318,127 +319,93 @@ class Updates:
             self._authorized = False
 
     #
-    async def _fetch_difference(
-        self: 'Telegram',
-        update_state: UpdateState
-    ):
-        
+    async def _fetch_difference(self: 'Telegram', update_state: UpdateState):
         state_info = update_state.state_info
         try:
-
-            pts = state_info.pts
-            qts = state_info.qts
-            seq = state_info.seq
-            date = state_info.date
-            
-            
             logger.debug(
                 'fetching difference: '
-                f'pts={pts}, qts={qts}, seq={seq}, date={date}'
+                f'pts={state_info.pts}, qts={state_info.qts}, '
+                f'seq={state_info.seq}, date={state_info.date}'
             )
-            if pts <= 0:
+            if state_info.pts <= 0:
                 logger.debug(
                     'Skipping difference fetch: '
-                    f'invalid pts={pts}, likely no prior state available'
+                    f'invalid pts={state_info.pts}, likely no prior state available'
                 )
                 return 
 
-            await update_state.destroy()
-    
-            while True:
-                difference = await self(
-                    functions.updates.GetDifference(
-                        pts=pts,
-                        qts=qts,
-                        date=date,
-                        pts_limit=PTS_LIMIT,
-                        pts_total_limit=PTS_TOTAL_LIMIT
-                    )
-                )
-                if isinstance(difference, types.updates.DifferenceEmpty):
-                    seq = difference.seq
-                    date = difference.date
-                    logger.debug(
-                        'difference empty: '
-                        f'updated seq={seq}, date={date}'
-                    )
-                    break
-
-                elif isinstance(difference, types.updates.DifferenceTooLong):
-                    pts = difference.pts
-                    logger.debug(f'difference too long: pts={pts}')
-                    break
-    
-                if isinstance(difference, types.updates.Difference):
-                    state = difference.state
-
-                else:
-                    state = difference.intermediate_state
-
-      
-                updates = difference.other_updates
-                for message in difference.new_messages:
-                    updates.append(
-                        types.update.UpdateNewMessage(
-                            message,
-                            pts=state.pts,
-                            pts_count=0
+            async with update_state:
+                while True:
+                    result = await self(
+                        functions.updates.GetDifference(
+                            pts=state_info.pts,
+                            qts=state_info.qts,
+                            date=state_info.date,
+                            pts_limit=PTS_LIMIT,
+                            pts_total_limit=PTS_TOTAL_LIMIT
                         )
                     )
-
-                for message in difference.new_encrypted_messages:
-                    updates.append(
-                        types.update.UpdateNewEncryptedMessage(
-                            message,
-                            qts=state.qts
+                    if isinstance(result, types.updates.DifferenceEmpty):
+                        state_info.seq = result.seq
+                        state_info.date = result.date
+                        logger.debug(
+                            'difference empty: '
+                            f'updated seq={result.seq}, date={result.date}'
                         )
-                    )
+                        break
 
-                update = types.updates.UpdatesCombined(
-                    updates,
-                    users=difference.users,
-                    chats=difference.chats,
-                    date=state.date,
-                    seq_start=0,
-                    seq=state.seq
-                )
-
-                state_info.pts = pts = state.pts
-                state_info.qts = qts = state.qts
-                state_info.seq = seq = state.seq
-                state_info.date = date = state.date
-
-                await self._updates_dispatcher(update)
-                if isinstance(difference, types.updates.DifferenceSlice):
-                    logger.debug('difference slice: fetching more differences')
-                    continue
-
-                break
+                    elif isinstance(result, types.updates.DifferenceTooLong):
+                        state_info.pts = result.pts
+                        
+                        logger.debug(f'difference too long: pts={result.pts}')
+                        break
         
-        except (
-            errors.PersistentTimestampEmptyError,
-            errors.PersistentTimestampInvalidError
-        ):
-            logger.info(
-                'invalid or empty pts: fetching fresh state from server'
-            )
-            state = await self(functions.updates.GetState())
-    
-            pts = state.pts
-            qts = state.qts
-            seq = state.seq
-            date = state.date
+                    if isinstance(result, types.updates.Difference):
+                        state = result.state
+
+                    else:
+                        state = result.intermediate_state
+                    
+                    state_info.pts = state.pts
+                    state_info.seq = state.seq
+                    state_info.date = state.date
+
+                    for update in result.other_updates:
+                        await self._handle_single_update(update)
+
+                    # no need to handle `new_messages` and `new_encrypted_messages` here:
+                    # they are already dispatched as `UpdateNewMessage` and `UpdateNewEncryptedMessage`
+                    # via `other_updates`.
+
+                    # for message in result.new_messages:
+                    #     update = types.update.UpdateNewMessage(
+                    #         message,
+                    #         pts=state.pts,
+                    #         pts_count=0
+                    #     )
+                    #     await self._handle_single_update(update) 
+
+                    # for qts, message in enumerate(result.new_encrypted_messages,
+                    #     start=state_info.qts - 1
+                    # ):
+                    #     update = types.update.UpdateNewEncryptedMessage(
+                    #         message,
+                    #         qts=qts
+                    #     )
+                    #     await self._handle_single_update(update) 
+
+                    if isinstance(result, types.updates.DifferenceSlice):
+                        logger.debug('difference slice: fetching more differences')
+                        continue
+
+                    break
 
         finally:
             logger.debug(
                 'difference fetching done:'
-                f'pts={pts}, qts={qts}, seq={seq}, date={date}'
+                f'pts={state_info.pts}, qts={state_info.qts}, '
+                f'seq={state_info.seq}, date={state_info.date}'
             )
-    
-            state_info.pts = pts
-            state_info.qts = qts
-            state_info.seq = seq
-            state_info.date = date
 
             self._save_state(state_info)
 
@@ -454,88 +421,73 @@ class Updates:
             )
             return
 
-        await update_state.destroy()
-    
-        try:
-            pts = state_info.pts
-    
-            logger.debug(
-                'fetching channel difference: '
-                f'pts={pts}, channel_id={state_info.channel_id}'
-            )
-    
-            while True:
-                difference = await self(
-                    functions.updates.GetChannelDifference(
-                        state_info.to_input_channel(),
-                        pts=pts,
-                        limit=PTS_LIMIT,
-                        filter=types.ChannelMessagesFilterEmpty()
-                    )
+        async with update_state:
+            try:
+                logger.debug(
+                    'fetching channel difference: '
+                    f'pts={state_info.pts}, channel_id={state_info.channel_id}'
                 )
 
-                if isinstance(difference, types.updates.ChannelDifferenceEmpty):
-                    pts = difference.pts
-                    logger.debug(
-                        'channel difference empty: '
-                        f'pts={pts}, channel_id={state_info.channel_id}'
-                    )
-                    break
-
-                if isinstance(difference, types.updates.ChannelDifferenceTooLong):
-                    # more: https://core.telegram.org/constructor/updates.channelDifferenceTooLong
-                    pts = difference.dialog.pts
-                    logger.debug(
-                        'channel difference too long:'
-                        f'pts={pts}, channel_id={state_info.channel_id}'
-                    )
-                    break
-
-                updates = difference.other_updates
-                for message in difference.new_messages:
-                    updates.append(
-                        types.update.UpdateNewChannelMessage(
-                            message,
-                            pts=difference.pts,
-                            pts_count=0
+                while state_info.pts > 0:
+                    result = await self(
+                        functions.updates.GetChannelDifference(
+                            state_info.to_input_channel(),
+                            pts=state_info.pts,
+                            limit=PTS_LIMIT,
+                            filter=types.ChannelMessagesFilterEmpty()
                         )
                     )
 
-                #
-                update = types.updates.UpdatesCombined(
-                    updates,
-                    users=difference.users,
-                    chats=difference.chats,
-                    date=int(time.time()),
-                    seq_start=0,
-                    seq=0
+                    if isinstance(result, types.updates.ChannelDifferenceEmpty):
+                        state_info.pts = result.pts
+                        logger.debug(
+                            'channel difference empty: '
+                            f'pts={state_info.pts}, channel_id={state_info.channel_id}'
+                        )
+                        break
+
+                    if isinstance(result, types.updates.ChannelDifferenceTooLong):
+                        # more: https://core.telegram.org/constructor/updates.channelDifferenceTooLong
+                        state_info.pts = result.dialog.pts
+                        logger.debug(
+                            'channel difference too long:'
+                            f'pts={state_info.pts}, channel_id={state_info.channel_id}'
+                        )
+                        break
+
+                    state_info.pts = result.pts
+                    for update in result.other_updates:
+                        await self._handle_single_update(update)
+
+                    # for message in result.new_messages:
+                    #     update = types.update.UpdateNewChannelMessage(
+                    #         message,
+                    #         pts=result.pts,
+                    #         pts_count=0
+                    #     )
+                    #     await self._handle_single_update(update)
+
+                    if result.final:
+                        logger.debug(
+                            'Final difference reached: '
+                            f'pts={state_info.pts}, channel_id={state_info.channel_id}'
+                        )
+                        break
+
+            except (errors.ChannelInvalidError,
+                    errors.ChannelPrivateError) as exc:
+                logger.info(
+                    f'Skipping channel difference fetch for state_id='
+                    f'{update_state.state_id} due to {type(exc).__name__!r} '
+                    '(probably the user left the channel, was kicked, or lost access)'
                 )
 
-                state_info.pts = pts = difference.pts
-                await self._updates_dispatcher(update)
+                await self._delete_update_state(update_state)
 
-                if difference.final:
-                    logger.debug(
-                        'Final difference reached: '
-                        f'pts={pts}, channel_id={state_info.channel_id}'
-                    )
-                    break
-
-        except (errors.ChannelInvalidError,
-                errors.ChannelPrivateError) as err:
-            logger.info(
-                f'Skipping channel difference fetch for state_id='
-                f'{update_state.state_id} due to {type(err).__name__!r} '
-                '(probably the user left the channel, was kicked, or lost access)'
-            )
-
-            await self._delete_update_state(update_state)
-            
-
-        finally:
-            logger.debug(f'channel difference fetching done: pts={pts}')
-            state_info.pts = pts
-            self._save_state(state_info)
+            finally:
+                logger.debug(f'channel difference fetching done: pts={state_info.pts}')
+                if state_info.pts > 0:
+                    self._save_state(state_info)
 
     # state
     def _save_state(
@@ -563,16 +515,12 @@ class Updates:
                 date=state_info.date
             )
 
-    def _get_update_state(
-        self: 'Telegram',
-        channel_id: t.Optional[int],
-        create: bool=True
-    ) -> UpdateState:
+    def _get_update_state(self: 'Telegram', channel_id: t.Optional[int]) -> UpdateState:
 
         state_id = models.StateId(channel_id)
         update_state = self._update_states.get(state_id)
 
-        if update_state is None and create:
+        if update_state is None:
             if channel_id is not None:
                 pts = self.session.get_channel_pts(channel_id)
                 entity = self._entities.get(channel_id)
@@ -619,9 +567,84 @@ class Updates:
 
         await update_state.destroy()
 
+    async def add_channel_polling(self: 'Telegram', entity: alias.LikeEntity):
+        """Starts polling a **public** channel or supergroup that you're not a member of.
 
-    async def add_channel_polling(self: 'Telegram', entity):
-        pass
+        Telegram only pushes updates for channels you're a member of
+        this method manually enables polling for a public channel or supergroup 
+        so you can receive updates even without joining.
 
-    async def remove_channel_polling(self: 'Telegram', entity):
-        pass
+
+        Args:
+            entity (`LikeEntity`): The channel or supergroup to poll.
+
+        """
+        if len(self._channel_polling) >= MAX_CHANNEL_POLLING:
+            raise OverflowError('Maximum polling channels reached.')
+
+        result = await self.get_entity(entity, full=True)
+        full_chat = getattr(result, 'full_chat', None)
+
+        if not isinstance(full_chat, types.ChannelFull):
+            raise TypeError(
+                'Polling is only supported for public channels or supergroups.'
+            )
+
+        if not next(
+            (
+                c.left
+                for c in result.chats
+                if isinstance(c, types.Channel) and c.id == full_chat.id
+            ),
+            False
+        ):
+            raise ValueError(
+                'You are a member of this channel or supergroup, polling is not required.'
+            )
+
+        update_state = self._get_update_state(full_chat.id)
+        update_state.state_info.pts = full_chat.pts
+
+        if update_state not in self._channel_polling:
+            self._channel_polling.add(update_state)
+            await update_state.reset_auto_fetch_timer()
+
+
+    async def remove_channel_polling(self: 'Telegram', entity: alias.LikeEntity):
+        """Stops polling updates from a public channel or supergroup.
+
+        If the given channel was previously added to polling, this method disables
+        auto fetching updates for it
+
+        Args:
+            entity (`LikeEntity`): The channel or supergroup to stop polling.
+
+        """
+        cached = self.get_cache_entity(entity)
+        
+        if cached is None:
+            channel = await self.get_entity(entity)
+
+            if not isinstance(channel, types.Channel):
+                return False
+
+            update_state = self._get_update_state(channel.id)
+        else:
+            if cached.type and not cached.type.is_channel:
+                return False
+
+            update_state = self._get_update_state(cached.id)
+            update_state.state_id.channel_id
+
+        if update_state not in self._channel_polling:
+            return False
+
+        self._channel_polling.discard(update_state)
+    
+    def get_polled_channel_ids(self: 'Telegram') -> t.List[int]:
+        """Get list of channel ids currently being polled."""
+
+        return [
+            state.state_id.channel_id
+            for state in self._channel_polling
+        ]

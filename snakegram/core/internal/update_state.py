@@ -1,3 +1,4 @@
+import asyncio
 import typing as t
 from ... import helpers, models
 from ...gadgets.utils import Timer, env, to_string
@@ -33,12 +34,12 @@ class UpdateState:
         single_update_handler: t.Callable[['types.TypeUpdate'], t.Awaitable],
         check_polling_callback: t.Callable[['UpdateState'], bool],
     ):
-
         self.state_info = state_info
         self.fetch_callback = fetch_callback
         self.single_update_handler = single_update_handler
         self.check_polling_callback = check_polling_callback
 
+        self._lock = asyncio.Lock()
         self._pending_updates: t.Set['types.TypeUpdate'] = set()
         self._update_gap_timer: t.Optional[Timer] = None
         self._auto_fetch_timer: t.Optional[Timer] = None
@@ -80,7 +81,6 @@ class UpdateState:
             await self.reset_gap_timer()
 
         return update in self._pending_updates
-
 
     async def process_update(self, update: 'types.TypeUpdate'):
         """start the "no update / polling" timer and removes the applied update from the pending set."""
@@ -151,3 +151,9 @@ class UpdateState:
         ):
             await self._auto_fetch_timer.reset(timeout)
 
+    async def __aenter__(self):
+        await self.destroy()
+        await self._lock.acquire()
+
+    async def __aexit__(self, exc_type, exc_value, exc_tb):
+        self._lock.release()

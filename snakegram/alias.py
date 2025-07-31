@@ -1,11 +1,28 @@
+import datetime
 import typing as t
 from pathlib import Path
 
 from .tl import types # type: ignore
 
-LikeFile: t.TypeAlias = t.Union[str, Path, t.BinaryIO]
+LikeFile: t.TypeAlias = t.Union[
+    str,
+    Path,
+    t.BinaryIO,
+    types.TypeInputFile,
+    types.TypeMessageMedia,
+    types.TypeInputFileLocation
+]
 EventType: t.TypeAlias = t.Literal['error', 'result', 'update', 'request']
 
+LikeTime: t.TypeAlias = t.Union[
+    int,
+    float,
+    datetime.date,
+    datetime.datetime,
+    datetime.timedelta
+]
+
+ParseMode: t.TypeAlias = t.Literal['html', 'md', 'markdown']
 
 URL = t.NewType('URL', str)
 Host = t.NewType('Host', str)

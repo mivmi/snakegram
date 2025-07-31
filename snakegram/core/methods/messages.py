@@ -1,7 +1,7 @@
 import typing as t
 from ... import alias, enums, helpers
 from ...tl import secret, types, functions
-from ...gadgets.utils import env, as_timestamp
+from ...gadgets.utils import env, to_timestamp
 from ...gadgets.parser import parse_markdown
 
 if t.TYPE_CHECKING:
@@ -186,7 +186,7 @@ class Messages:
             allow_paid_floodskip=allow_paid_floodskip,
             reply_to=reply_to,
             reply_markup=reply_markup,
-            schedule_date=as_timestamp(schedule_date),
+            schedule_date=to_timestamp(schedule_date),
             entities=entities,
             send_as=send_as,
             quick_reply_shortcut=quick_reply

@@ -3,7 +3,7 @@ import sys
 import time
 import asyncio
 import inspect
-
+import datetime
 import typing as t
 import typing_extensions as te
 
@@ -15,7 +15,9 @@ from functools import wraps, partial
 T_1 = t.TypeVar('T_1')
 P_1 = te.ParamSpec('P_1')
 
+_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
 _NOTING = object()
+
 
 def env(name: str, default: t.Any, var_type: t.Type[T_1] = str) -> T_1:
     """
@@ -326,6 +328,29 @@ def is_like_list(obj) -> t.TypeGuard[t.Iterable[T_1]]:
         and not isinstance(obj, (str, bytes, bytearray))
     )
 
+def to_timestamp(obj) -> t.Optional[int]:
+    """convert various date/time inputs to a `UTC` timestamp."""
+    def _to_timestamp(dt: datetime.datetime):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+
+        return int((dt - _EPOCH).total_seconds())
+
+    if isinstance(obj, (int, float)):
+        return int(obj)
+
+    if isinstance(obj, datetime.datetime):
+        return _to_timestamp(obj)
+
+    if isinstance(obj, datetime.date):
+        return _to_timestamp(
+            datetime.datetime.combine(obj, datetime.time.min)
+        )
+
+    if isinstance(obj, datetime.timedelta):
+        return _to_timestamp(
+            obj + datetime.datetime.now(datetime.timezone.utc)
+        )
 
 # asyncio helpers
 @decorator

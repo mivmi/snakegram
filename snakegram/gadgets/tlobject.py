@@ -29,10 +29,21 @@ class TLObject(t.Generic[T], ABC):
     _id: t.Optional[int] = None
     _group_id: t.Optional[int] = None
 
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.to_tuple() == other.to_tuple()
+
+    def __hash__(self):
+        return hash(self.to_tuple())
+
     def __repr__(self):
         return self.to_string()
 
     def to_dict(self) -> t.Dict[str, t.Any]:
+        if hasattr(self, '_cached_dict'):
+            return self._cached_dict
+
         result = {
             '_': self.__class__.__qualname__
         }
@@ -44,11 +55,15 @@ class TLObject(t.Generic[T], ABC):
                 value = value.to_dict()
 
             result[name] = value
-        return result
+
+        self._cached_dict = result
+        return self._cached_dict
 
     def to_tuple(self):
-        result = []
+        if hasattr(self, '_cached_tuple'):
+            return self._cached_tuple
 
+        result = []
         for name, value in self.__dict__.items():
             if name.startswith('_'):
                 continue
@@ -57,54 +72,41 @@ class TLObject(t.Generic[T], ABC):
                 value = value.to_tuple()
             
             result.append(value)
-        
-        return tuple(result)   
+
+        self._cached_tuple = tuple(result)
+        return self._cached_tuple  
 
     def to_string(self, indent: int = None):
         return to_string(self.to_dict(), indent=indent)
 
     def replace(self, **kwargs) -> te.Self:
         """
-        Creates a new instance of the class with updated values for its parameters.
+        Create a new instance of the same class with updated values.
 
-        This method uses the current values of the object and any new values passed
-        via `kwargs` to create a new instance of the same class, effectively "replacing"
-        the current object's values with those provided. If a value for a parameter
-        is not provided in `kwargs`, the method will use the current value of that
-        parameter from the object itself.
+        Any keyword arguments passed will override the corresponding attributes
+        of the current object. Fields not provided in `kwargs` will keep their current values.
 
-        Parameters:
-            **kwargs: The keyword arguments containing the new values for the object's
-                    parameters. If a parameter is not present in `kwargs`, the method
-                    will use the existing value from the current instance.
+        Args:
+            **kwargs: Field names and new values to override.
 
         Returns:
-            A new instance of the class with updated values for its parameters.
-        
+            A new instance of the same class with updated attributes.
+
         Example:
             >>> obj = SomeClass(a=1, b=2)
             >>> obj.replace(a=3)
-            >>> SomeClass(a=3, b=2)
+            SomeClass(a=3, b=2)
         """
         init_method = type(self).__init__
 
         return type(self)(
             **{
-                name: (
-                    kwargs.get(name)
-                    or getattr(self, name)
-                )
+                name: kwargs.get(name, getattr(self, name))
                 for name in init_method.__annotations__.keys()
             }
         )
 
     def __init_subclass__(cls, family: t.Optional[str] = None):
-        """
-        Automatically executed when a subclass is defined.
-
-        If the subclass defines an `_id`, it is registered in `TYPES_MAP`.
-        """
-
         if not hasattr(cls, '_result_type'): # is type
             if cls._id:
                 TYPES_MAP[cls._id] = cls

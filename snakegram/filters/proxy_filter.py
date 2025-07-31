@@ -75,5 +75,4 @@ class ProxyFilter(BaseFilter):
         get_item.__name__ = f'getitem<{item!r}>'
         return ProxyFilter(*self._chains, get_item)
 
-
-
+magic = ProxyFilter()

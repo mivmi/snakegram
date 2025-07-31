@@ -31,7 +31,7 @@ class BaseParser:
             )
         
         return MessageEntity(
-            MessageEntityType.Url,
+            MessageEntityType.TextUrl,
             offset=offset,
             length=length,
             url=url

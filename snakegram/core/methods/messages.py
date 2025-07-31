@@ -38,6 +38,7 @@ class Messages:
         allow_paid_floodskip: bool = False,
         update_stickersets_order: bool = False,
 
+        effect: t.Optional[int] = None,
         entities: t.List[types.TypeMessageEntity] = None,
         parse_mode: alias.ParseMode = None,
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
@@ -92,6 +93,10 @@ class Messages:
             update_stickersets_order (`bool`, optional):
                 If `True`, moves the used stickerset to the top. (For `UI` only, has no effect on core logic)
             
+            effect (`int`, optional):
+                Specifies a message effect to use for the message.
+                To get the list of available effects, use the function `messages.GetAvailableEffects`.
+
             entities (`List[MessageEntity]`, optional):
                 List of message formatting `entities`.
                 If provided, parsing will be skipped and the message will be formatted directly using this list.
@@ -189,6 +194,7 @@ class Messages:
             schedule_date=to_timestamp(schedule_date),
             entities=entities,
             send_as=send_as,
+            effect=effect,
             quick_reply_shortcut=quick_reply
         )
         return await self._resolve_response(request)
@@ -356,12 +362,10 @@ class Messages:
                 entities=result.entities,
                 reply_markup=request.reply_markup,
                 ttl_period=result.ttl_period,
-                reply_to=request.reply_to,
                 silent=request.silent,
                 noforwards=request.noforwards,
                 invert_media=request.invert_media,
                 effect=request.effect,
-                quick_reply_shortcut=request.quick_reply_shortcut,
                 from_id=from_id
             )
 
@@ -428,7 +432,7 @@ class Messages:
     async def _get_input_reply_to(
         self: 'Telegram',
         reply: ReplyType,
-        input_peer: t.Optional[types.TypeInputPeer] = None,
+        entity: t.Optional[alias.LikeEntity] = None,
     ) -> types.TypeInputReplyTo:
 
         if isinstance(reply, types.TypeInputReplyTo):
@@ -439,8 +443,8 @@ class Messages:
             reply = message
 
         msg_id = None
-        peer_id = None
-        top_msg_id = None 
+        top_msg_id = None
+        reply_to_peer_id = None
 
         
         if isinstance(reply, int):
@@ -459,7 +463,8 @@ class Messages:
 
             else:
                 msg_id = reply.id
-                peer_id = reply.peer_id
+                reply_to_peer_id = reply.peer_id
+
                 if reply.reply_to is not None:
                     top_msg_id = (
                         reply.reply_to.reply_to_top_id
@@ -467,19 +472,20 @@ class Messages:
                         reply.reply_to.reply_to_msg_id
                     )
 
-        if peer_id:
-            if (
-                input_peer is None
-                or
-                helpers.cast_to_peer(input_peer) == peer_id
-            ):
-                peer_id = None
+        # skip `reply_to_peer_id` if replying within the same chat or target chat is unknown.
+        if reply_to_peer_id:
+            if entity is not None:
+                input_peer = await self.get_input_peer(entity)
+                reply_to_peer_id = await self.get_input_peer(reply_to_peer_id)
+
+                if input_peer == reply_to_peer_id:
+                    reply_to_peer_id = None 
 
             else:
-                peer_id = await self.get_input_peer(peer_id)
+                reply_to_peer_id = None
 
         return types.InputReplyToMessage(
             msg_id,
             top_msg_id=top_msg_id,
-            reply_to_peer_id=peer_id
+            reply_to_peer_id=reply_to_peer_id
         )

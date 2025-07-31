@@ -1,6 +1,6 @@
 import typing as t
 
-from ... import errors, alias, helpers
+from ... import errors, enums, alias, helpers
 from ...tl import types, functions
 from ...models import _local_event as event
 from ...gadgets.utils import split_list, is_like_list
@@ -41,6 +41,33 @@ class Common:
         else:        
             self._authorized = True
             return result
+
+    async def is_bot(self: 'Telegram', entity: alias.LikeEntity = 'me'):
+        """
+        Checks if the given entity is bot or user.
+
+        Args:
+            entity (`LikeEntity`): The target entity to check. Defaults to `'me'`.
+
+        Returns:
+            bool: True if the entity is a bot, False otherwise.
+
+        Example:
+        ```python
+        if await client.is_bot():
+            print("Logged in as a bot")
+        else:
+            print("Logged in as a user")
+        ```
+        """
+
+        # try to resolve quickly
+        cache = self.get_cache_entity(entity) # cache/ session
+        if cache and cache.type:
+            return cache.type == enums.EntityType.Bot
+    
+        result = await self.get_entity(entity)
+        return isinstance(result, types.User) and result.bot
 
     # get entity
     if t.TYPE_CHECKING:
@@ -96,7 +123,7 @@ class Common:
         Fetch info about one or multiple entities.
     
         Args:
-            targets (`EntityLike` | `List[EntityLike]`):
+            targets (`LikeEntity` | `List[LikeEntity]`):
                 The entity or list of entities to fetch.
 
             full (bool, optional):
@@ -258,6 +285,19 @@ class Common:
         ordered = [results[i] for i in sorted(results)]
         return ordered[0] if is_single else ordered
 
+    #
+    async def get_input_peer(self: 'Telegram', entity: alias.LikeEntity) -> types.TypeInputPeer:
+        if isinstance(entity, types.TypeInputPeer):
+            return entity
+
+        cache_entity = self.get_cache_entity(entity)
+        if cache_entity is not None:
+            return cache_entity.to_input_peer()
+
+        result = await self.get_entity(entity)
+        return helpers.cast_to_input_peer(result)
+
+    # sync
     def get_cache_entity(self: 'Telegram', entity: alias.LikeEntity):
         if isinstance(entity, int):
             return self._entities.get(entity)

@@ -1,7 +1,6 @@
 import typing as t
-from .filter import BaseFilter
-from ..gadgets.utils import to_string, maybe_await
-
+from .base import BaseFilter
+from ..utils import to_string, maybe_await
 
 
 class ProxyFilter(BaseFilter):
@@ -75,4 +74,3 @@ class ProxyFilter(BaseFilter):
         get_item.__name__ = f'getitem<{item!r}>'
         return ProxyFilter(*self._chains, get_item)
 
-magic = ProxyFilter()

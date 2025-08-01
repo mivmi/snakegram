@@ -2,12 +2,12 @@ import operator
 import typing as t
 import typing_extensions as te
 
-
 from inspect import isclass
 from abc import ABC, abstractmethod
 
-from ..enums import Operation
-from ..gadgets.utils import decorator, to_string, maybe_await
+from ..utils import decorator, to_string, maybe_await
+from ...enums import Operation
+
 
 T = t.TypeVar('T')
 P = te.ParamSpec('P')
@@ -147,7 +147,6 @@ class CustomFilter(t.Generic[P, T], BaseFilter):
 
     async def evaluate(self, value: t.Any) -> t.Any:
         return await maybe_await(self.func(value))
-
 
 @decorator
 def build_filter(func: t.Callable[P, T]):

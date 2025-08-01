@@ -263,11 +263,16 @@ class Markdown(BaseParser):
             )
 
         if entity in ('>', '!>'):
+            entity_type = (
+                MessageEntityType.BlockQuote
+                if entity == '>' else
+                MessageEntityType.ExpandableBlockQuote
+            )
+
             return MessageEntity(
-                MessageEntityType.BlockQuote,
+                entity_type,
                 offset=offset,
-                length=length,
-                collapsed=(entity == '!>')
+                length=length
             )
 
         if arguemnt and entity == 'url':

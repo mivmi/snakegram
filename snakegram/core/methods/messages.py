@@ -10,7 +10,7 @@ if t.TYPE_CHECKING:
 
 T = t.TypeVar('T')
 
-ReplyType: t.TypeAlias = t.Union[
+ReplyType = t.Union[
     int,
     types.Message,
     types.TypeInputReplyTo
@@ -155,6 +155,7 @@ class Messages:
             if entities is None:
                 entities = message.entities
 
+            effect = effect or message.effect
             reply_markup = (
                 message.reply_markup
                 if reply_markup is None else
@@ -167,7 +168,7 @@ class Messages:
 
         if entities is None:
             message_text, entities = self.parse_message_text(
-                message,
+                message_text,
                 parse_mode=parse_mode or PARSE_MODE
             )
 
@@ -291,7 +292,10 @@ class Messages:
                             length=entity.length
                         )
 
-                elif etype is enums.MessageEntityType.BlockQuote:
+                elif etype in (
+                    enums.MessageEntityType.BlockQuote,
+                    enums.MessageEntityType.ExpandableBlockQuote
+                ):
                     if _layer_at_least(101):
                         if secret_layer:
                             # no support collapsed
@@ -299,12 +303,15 @@ class Messages:
                                 entity.offset,
                                 length=entity.length
                             )
-                        
+
                         else:
                             item = types.MessageEntityBlockquote(
                                 entity.offset,
                                 length=entity.length,
-                                collapsed=entity.collapsed
+                                collapsed=isinstance(
+                                    etype,
+                                    enums.MessageEntityType.ExpandableBlockQuote
+                                )
                             )
 
                 elif etype is enums.MessageEntityType.Strikethrough:
@@ -350,7 +357,7 @@ class Messages:
             
             else:
                 me = await self.get_input_peer('me')
-                from_id = helpers.cast_to_peer(me)
+                from_id = helpers.cast_to_peer(me, raise_error=False)
 
             message = types.Message(
                 id=result.id,
@@ -478,7 +485,7 @@ class Messages:
                 input_peer = await self.get_input_peer(entity)
                 reply_to_peer_id = await self.get_input_peer(reply_to_peer_id)
 
-                if input_peer == reply_to_peer_id:
+                if input_peer.to_tuple() == reply_to_peer_id.to_tuple():
                     reply_to_peer_id = None 
 
             else:

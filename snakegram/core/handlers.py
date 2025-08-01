@@ -1,6 +1,5 @@
 import logging
 import typing as t
-from itertools import chain
 
 from .internal.event_handler import EventHandler
 
@@ -11,9 +10,9 @@ from ..gadgets.utils import dualmethod, decorator
 
 if t.TYPE_CHECKING:
     from .telegram import Telegram
-    from ..filters import BaseFilter
     from ..tl.types import TypeUpdate
     from ..network.utils import Request
+    from ..gadgets.filter import BaseFilter
     from ..gadgets.tlobject import TLObject
 
 logger = logging.getLogger(__name__)
@@ -79,7 +78,7 @@ class Handlers:
 
         Example:
             ```python
-            @client.on_error(magic % errors.FloodWaitError)
+            @client.on_error(filters.proxy % errors.FloodWaitError)
             async def flood_wait_handler(error):
                 if error.seconds < 60:
                     await asyncio.sleep(error.seconds)
@@ -94,7 +93,7 @@ class Handlers:
             async def flood_wait_handler(error):
                 ...
 
-            client.on_error(flood_wait_handler, magic % errors.FloodWaitError)
+            client.on_error(flood_wait_handler, filters.proxy % errors.FloodWaitError)
             ```
 
         Note:
@@ -124,7 +123,7 @@ class Handlers:
         Example:
             ```python
             @client.on_update(
-                magic % (
+                filters.proxy % (
                     types.UpdateNewMessage,
                     types.UpdateNewChannelMessage
                 )
@@ -138,7 +137,7 @@ class Handlers:
             ```python
             client.on_update(
                 handle_new_messages,
-                magic % (
+                filters.proxy % (
                     types.UpdateNewMessage,
                     types.UpdateNewChannelMessage
                 )
@@ -173,7 +172,7 @@ class Handlers:
         Example:
             ```python
             @client.on_result(
-                magic % types.update.UpdateConfig
+                filters.proxy % types.update.UpdateConfig
             )
             async def set_config(result):
                 ...
@@ -182,7 +181,7 @@ class Handlers:
             You can also register the handler manually without using the decorator:
 
             ```python
-            client.on_result(set_config, magic % types.update.UpdateConfig)
+            client.on_result(set_config, filters.proxy % types.update.UpdateConfig)
             ```
 
         Note:

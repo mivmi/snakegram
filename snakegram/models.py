@@ -6,23 +6,24 @@ from .gadgets.utils import to_string, Local
 
 if t.TYPE_CHECKING:
     from .core import Telegram
+    from .alias import Phone, Username
     from .network.utils import Request
     from .gadgets.byteutils import TLObject
 
 
-class Entity:
+class UserEntity:
     def __repr__(self):
         return self.to_string()
 
     def to_dict(self):
         return {
             'id': self.id,
-            'type': self.type,
             'access_hash': self.access_hash,
             'name': self.name,
-            'is_self': self.is_self,
+            'phone': self.phone,
             'username': self.username,
-            'phone_number': self.phone_number
+            'is_bot': self.is_bot,
+            'is_self': self.is_self
         }
 
     def to_string(self, indent: t.Optional[int] = None):
@@ -31,43 +32,65 @@ class Entity:
     def __init__(
         self,
         id: int,
-        type: t.Optional[enums.EntityType],
         access_hash: t.Optional[int],
         *,
         name: t.Optional[str] = None,
-        is_self: t.Optional[bool] = None,
-        username: t.Optional[str] = None,
-        phone_number: t.Optional[str] = None
+        phone: t.Optional['Phone'] = None,
+        username: t.Optional['Username'] = None,
+        is_bot: t.Optional[bool] = None,
+        is_self: t.Optional[bool] = None
     ):
-        
+
         self.id = id
-        self.type = type
         self.access_hash = access_hash
 
         self.name = name
-        self.is_self = bool(is_self)
+        self.phone = phone
         self.username = username
-        self.phone_number = phone_number
-
-    @property
-    def is_bot(self):
-        return self.type is enums.EntityType.Bot
+        self.is_bot = is_bot
+        self.is_self = is_self
 
     def to_input_peer(self):
-        if self.type.is_user:
-            return types.InputPeerUser(
-                self.id,
-                access_hash=self.access_hash
-            )
-        
-        if self.type.is_group:
-            return types.InputPeerChat(self.id)
-        
-        if self.type.is_channel:
-            return types.InputPeerChannel(
-                self.id,
-                access_hash=self.access_hash
-            )
+        return types.InputPeerUser(
+            self.id,
+            access_hash=self.access_hash or 0
+        )
+
+class ChannelEntity:
+    def __repr__(self):
+        return self.to_string()
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'access_hash': self.access_hash,
+            'title': self.title,
+            'username': self.username
+        }
+
+    def to_string(self, indent: t.Optional[int] = None):
+        return to_string(self, indent)
+
+    def __init__(
+        self,
+        id: int,
+        access_hash: t.Optional[int],
+        *,
+        title: t.Optional[str] = None,
+        username: t.Optional['Username'] = None
+    ):
+
+        self.id = id
+        self.access_hash = access_hash
+
+        self.title = title
+        self.username = username
+
+    def to_input_peer(self):
+        return types.InputPeerChannel(
+            self.id,
+            access_hash=self.access_hash or 0
+        )
 
 # state
 class StateId:
@@ -116,7 +139,7 @@ class StateInfo:
         qts: t.Optional[int] = None,
         seq: t.Optional[int] = None,
         date: t.Optional[int] = None,
-        entity: t.Optional['Entity'] = None
+        entity: t.Optional['ChannelEntity'] = None
     ):
         self.pts = pts
         self.qts = qts 
@@ -243,7 +266,6 @@ class EventContext:
             )
         )
 
-
 class MessageEntity:
     def __repr__(self):
         return self.to_string()
@@ -255,7 +277,6 @@ class MessageEntity:
             'length': self.length,
             'url': self.url,
             'user_id': self.user_id,
-            'collapsed': self.collapsed,
             'lang_code': self.lang_code,
             'custom_emoji_id': self.custom_emoji_id
         }
@@ -270,7 +291,6 @@ class MessageEntity:
         length: int,
         url: t.Optional[str] = None,
         user_id: t.Optional[int] = None,
-        collapsed: t.Optional[bool] = None,
         lang_code: t.Optional[str] = None,
         custom_emoji_id: t.Optional[int] = None,
     ):
@@ -281,7 +301,6 @@ class MessageEntity:
         
         self.url = url
         self.user_id = user_id
-        self.collapsed = collapsed
         self.lang_code = lang_code
         self.custom_emoji_id = custom_emoji_id
 

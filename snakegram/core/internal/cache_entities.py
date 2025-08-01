@@ -1,7 +1,7 @@
 import typing as t
 
 from ...tl import types # type: ignore
-from ... import helpers, models, enums
+from ... import helpers, models, alias
 from ...gadgets.utils import env, Cache
 
 if t.TYPE_CHECKING:
@@ -24,16 +24,22 @@ class CacheEntities(Cache):
     def pop(self, key, save: bool = True):
         value = super().pop(key)
 
-        if save and isinstance(value, models.Entity):
+        if save and isinstance(
+            value,
+            (
+                models.UserEntity,
+                models.ChannelEntity
+            )
+        ):
             self.session.upsert_entity(value)
 
         return value
 
-    def get(self, id: int) -> t.Optional[models.Entity]:
-        result =  super().get(id)
+    def get(self, peer_id: int) -> t.Optional[alias.StoredEntityType]:
+        result =  super().get(peer_id)
 
         if result is None:
-            result = self.session.get_entity(id=id)
+            result = self.session.get_entity(id=peer_id)
 
             if result is not None:
                 self.add_or_update(result.id, result)
@@ -48,20 +54,14 @@ class CacheEntities(Cache):
 
             if user.access_hash and not user.min:
                 name = helpers.get_display_name(user)
-                user_type = (
-                    enums.EntityType.Bot 
-                    if user.bot else
-                    enums.EntityType.User
-                )
-        
-                value = models.Entity(
+                value = models.UserEntity(
                     user.id,
-                    user_type,
                     user.access_hash,
                     name=name,
-                    is_self=user.is_self,
-                    username=user.username,
-                    phone_number=user.phone
+                    phone=user.phone,
+                    username=helpers.get_active_username(user),
+                    is_bot=user.bot,
+                    is_self=user.is_self
                 )
 
                 self.add_or_update(user.id, value, check=False)
@@ -80,25 +80,17 @@ class CacheEntities(Cache):
                 self.pop(chat.id, save=False)
                 continue
 
-            is_min = getattr(chat, 'min', None)
-            access_hash = getattr(chat, 'access_hash', None)
+            is_min: bool = getattr(chat, 'min', False)
+            access_hash: t.Optional[int] = getattr(chat, 'access_hash', None)
 
             if access_hash and not is_min:
-                name = helpers.get_display_name(chat)
-                chat_type = (
-                    enums.EntityType.Megagroup
-                    if chat.megagroup else (
-                        enums.EntityType.Gigagroup
-                        if getattr(chat, 'gigagroup', None) else 
-                        enums.EntityType.Channel
-                    )
-                )
+                title = helpers.get_display_name(chat)
 
-                value = models.Entity(
+                value = models.ChannelEntity(
                     chat.id,
-                    chat_type,
-                    chat.access_hash,
-                    name=name             
+                    access_hash,
+                    title=title,
+                    username=helpers.get_active_username(chat)
                 )
 
                 self.add_or_update(chat.id, value, check=False)

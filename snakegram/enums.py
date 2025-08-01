@@ -24,41 +24,6 @@ class EventType(enum.Enum):
     Update = enum.auto()
     Request = enum.auto()
 
-class EntityType(enum.IntEnum):
-    Bot = enum.auto()
-    User = enum.auto()
-    Group = enum.auto()
-    Channel = enum.auto()
-    Megagroup = enum.auto()
-    Gigagroup = enum.auto()
-
-    @property
-    def char(self):
-        return self.name[0]
-
-    @property
-    def is_user(self):
-        return self in (EntityType.Bot, EntityType.User)
-    
-    @property
-    def is_group(self):
-        return self is EntityType.Group
-
-    @property
-    def is_channel(self):
-        return not any((self.is_user, self.is_group))
-
-    @classmethod
-    def from_char(cls, char: str):
-        if len(char) == 1:
-            char = char.upper()
-            for etype in EntityType:
-                if etype.char == char:
-                    return etype
-
-        raise ValueError(f'invalid entity type char: {char!r}')
-
-
 class MessageEntityType(enum.IntEnum):
     Mention = enum.auto()
     Hashtag = enum.auto()

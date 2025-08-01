@@ -2,7 +2,8 @@ import typing as t
 from abc import ABC, abstractmethod
 
 if t.TYPE_CHECKING:
-    from ..models import Entity
+    from ..alias import StoredEntityType
+    from ..models import UserEntity
     from ..crypto import AuthKey
 
 DEFAULT_STATE_DATE = 2 ** 31 - 1
@@ -15,7 +16,7 @@ class AbstractSession(ABC):
 
     @property
     @abstractmethod
-    def me(self) -> t.Optional['Entity']:
+    def me(self) -> t.Optional['UserEntity']:
         """the current user's entity, if available."""
         raise NotImplementedError
 
@@ -106,14 +107,15 @@ class AbstractSession(ABC):
         self,
         *,
         id: int = None,
-        username: str = None,
-        phone_number: str = None
-    ) -> t.Optional['Entity']:
-        """get entity by `id`, `username`, or `phone_number`."""
+        phone: str = None,
+        is_self: bool = None,
+        username: str = None
+    ) -> t.Optional['StoredEntityType']:
+        """get entity by `id`, `phone`, `is_self`, `username`."""
         pass
 
     @abstractmethod
-    def upsert_entity(self, entity: 'Entity') -> None: 
+    def upsert_entity(self, entity: 'StoredEntityType') -> None: 
         """inserts or updates entity."""
         pass
     

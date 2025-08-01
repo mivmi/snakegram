@@ -1,6 +1,6 @@
 import typing as t
 
-from ... import errors, enums, alias, helpers
+from ... import errors, alias, helpers
 from ...tl import types, functions
 from ...models import _local_event as event
 from ...gadgets.utils import split_list, is_like_list
@@ -9,8 +9,8 @@ if t.TYPE_CHECKING:
     from ..telegram import Telegram
 
 
-EntityType: t.TypeAlias = t.Union[types.TypeUser, types.TypeChat]
-FullEntityType: t.TypeAlias = t.Union[
+EntityType = t.Union[types.TypeUser, types.TypeChat]
+FullEntityType = t.Union[
     types.users.TypeUsersUserFull,
     types.messages.TypeMessagesChatFull
 ]
@@ -62,10 +62,6 @@ class Common:
         """
 
         # try to resolve quickly
-        cache = self.get_cache_entity(entity) # cache/ session
-        if cache and cache.type:
-            return cache.type == enums.EntityType.Bot
-    
         result = await self.get_entity(entity)
         return isinstance(result, types.User) and result.bot
 
@@ -157,11 +153,16 @@ class Common:
         grouped ={}
 
         for idx, target in enumerate(targets):
-            entity = None
+            input_peer = None
             cache_entity = self.get_cache_entity(target)
 
             if cache_entity is None:
-                if isinstance(target, str):
+                input_peer = helpers.cast_to_input_peer(
+                    target,
+                    raise_error=False
+                )
+
+                if input_peer is None and isinstance(target, str):
                     # remove username perfix
                     username = helpers.parse_username(target)
                     if username is None:
@@ -183,53 +184,72 @@ class Common:
                             if not full:
                                 results[idx] = item
                             else:
-                                entity = helpers.cast_to_input_peer(item)
+                                input_peer = helpers.cast_to_input_peer(item)
 
                             break
             else:
-                entity = cache_entity.to_input_peer()
+                input_peer = cache_entity.to_input_peer()
 
-                # if `get_entity` is called while handling an update, the required data
-                # might already be included in the update
-                # we cache this data in `_prepare_updates`, so we can avoid making
-                # an extra request by using the cached version instead.
-                # this only applies when `full` is False and `force_request` is not set.
-                if event.is_update and not full and not force_request:
-                    peer_id = helpers.get_peer_id(entity, raise_error=False)
+            # if `get_entity` is called while handling an update, the required data
+            # might already be included in the update
+            # we cache this data in `_prepare_updates`, so we can avoid making
+            # an extra request by using the cached version instead.
+            # this only applies when `full` is False and `force_request` is not set.
+            is_user = isinstance(
+                input_peer,
+                (
+                    types.InputPeerSelf,
+                    types.InputPeerUser,
+                    types.InputPeerUserFromMessage
+                )
+            )
 
-                    if isinstance(entity, types.InputPeerUser):
-                        value = next(
-                            (
-                                u
-                                for u in getattr(event.update, '_users', [])
-                                if peer_id == helpers.get_peer_id(u, raise_error=False)
-                            ),
-                            None
-                        )
-                    else:
-                        value = next(
-                            (
-                                c
-                                for c in getattr(event.update, '_chats', [])
-                                if peer_id == helpers.get_peer_id(c, raise_error=False)
-                            ),
-                            None
-                        )
+            if (
+                input_peer
+                and event.is_update
+                and not full and not force_request
+            ):
+                peer_id = helpers.get_peer_id(input_peer, raise_error=False)
 
-                    if value is not None:
-                        results[idx] = value
-                        continue
+                if is_user:
+                    value = next(
+                        (
+                            u
+                            for u in getattr(event.update, '_users', [])
+                            if peer_id == helpers.get_peer_id(u, raise_error=False)
+                        ),
+                        None
+                    )
+                else:
+                    value = next(
+                        (
+                            c
+                            for c in getattr(event.update, '_chats', [])
+                            if peer_id == helpers.get_peer_id(c, raise_error=False)
+                        ),
+                        None
+                    )
 
-            if isinstance(entity, types.InputPeerUser):
-                item = helpers.cast_to_input_user(entity)
+                if value is not None:
+                    results[idx] = value
+                    continue
+
+            if is_user:
+                item = helpers.cast_to_input_user(input_peer)
                 entity_type = 'user'
 
-            elif isinstance(entity, types.InputPeerChat):
-                item = entity.chat_id
+            elif isinstance(input_peer, types.InputPeerChat):
+                item = input_peer.chat_id
                 entity_type = 'chat'
 
-            elif isinstance(entity, types.InputPeerChannel):
-                item = helpers.cast_to_input_channel(entity)
+            elif isinstance(
+                input_peer,
+                (
+                    types.InputPeerChannel,
+                    types.InputPeerChannelFromMessage
+                )
+            ):
+                item = helpers.cast_to_input_channel(input_peer)
                 entity_type = 'channel'
 
             else:
@@ -254,31 +274,35 @@ class Common:
 
                     else:
                         request = functions.channels.GetFullChannel(entity)
+                    
+                    results[idx] = result = await self(request)
 
-                    results[idx] = await self(request) 
-        
+                    self._entities.add_users(*result.users)
+                    self._entities.add_chats(*result.chats)
+
         else:
             for entity_type, entities in grouped.items():
                 for chunk in split_list(entities, limit_per_request):
                     indices, inputs = zip(*chunk)
-                    
+
                     if entity_type == 'user':
                         result = await self(functions.users.GetUsers(inputs))
-        
-                    elif entity_type == 'chat':
-                        result = (
-                            await self(
+                        self._entities.add_users(*result)
+
+                    else:
+                        if entity_type == 'chat':
+                            result = await self(
                                 functions.messages.GetChats(inputs)
                             )
-                        ).chats
-    
-                    else:
-                        result = (
-                            await self(
+
+                        else:
+                            result = await self(
                                 functions.channels.GetChannels(inputs)
                             )
-                        ).chats
-                    
+
+                        result = result.chats
+                        self._entities.add_chats(*result)
+
                     for idx, entity in zip(indices, result):
                         results[idx] = entity 
 
@@ -287,15 +311,20 @@ class Common:
 
     #
     async def get_input_peer(self: 'Telegram', entity: alias.LikeEntity) -> types.TypeInputPeer:
-        if isinstance(entity, types.TypeInputPeer):
-            return entity
+        input_peer = helpers.cast_to_input_peer(
+            entity,
+            raise_error=False
+        )
+
+        if input_peer is not None:
+            return input_peer
 
         cache_entity = self.get_cache_entity(entity)
         if cache_entity is not None:
             return cache_entity.to_input_peer()
 
         result = await self.get_entity(entity)
-        return helpers.cast_to_input_peer(result)
+        return helpers.cast_to_input_peer(result, raise_error=False)
 
     # sync
     def get_cache_entity(self: 'Telegram', entity: alias.LikeEntity):
@@ -326,6 +355,6 @@ class Common:
                 if _entity is not None:
                     return _entity
 
-            phone_number = helpers.parse_phone_number(entity)
-            if phone_number:
-                return self.session.get_entity(phone_number=phone_number)
+            phone = helpers.parse_phone_number(entity)
+            if phone:
+                return self.session.get_entity(phone=phone)

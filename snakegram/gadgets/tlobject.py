@@ -29,21 +29,10 @@ class TLObject(t.Generic[T], ABC):
     _id: t.Optional[int] = None
     _group_id: t.Optional[int] = None
 
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-        return self.to_tuple() == other.to_tuple()
-
-    def __hash__(self):
-        return hash(self.to_tuple())
-
     def __repr__(self):
         return self.to_string()
 
     def to_dict(self) -> t.Dict[str, t.Any]:
-        if hasattr(self, '_cached_dict'):
-            return self._cached_dict
-
         result = {
             '_': self.__class__.__qualname__
         }
@@ -56,13 +45,9 @@ class TLObject(t.Generic[T], ABC):
 
             result[name] = value
 
-        self._cached_dict = result
-        return self._cached_dict
+        return result
 
     def to_tuple(self):
-        if hasattr(self, '_cached_tuple'):
-            return self._cached_tuple
-
         result = []
         for name, value in self.__dict__.items():
             if name.startswith('_'):
@@ -73,8 +58,7 @@ class TLObject(t.Generic[T], ABC):
             
             result.append(value)
 
-        self._cached_tuple = tuple(result)
-        return self._cached_tuple  
+        return tuple(result)  
 
     def to_string(self, indent: int = None):
         return to_string(self.to_dict(), indent=indent)

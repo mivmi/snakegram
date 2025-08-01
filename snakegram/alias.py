@@ -3,8 +3,9 @@ import typing as t
 from pathlib import Path
 
 from .tl import types # type: ignore
+from .models import UserEntity, ChannelEntity
 
-LikeFile: t.TypeAlias = t.Union[
+LikeFile = t.Union[
     str,
     Path,
     t.BinaryIO,
@@ -12,9 +13,9 @@ LikeFile: t.TypeAlias = t.Union[
     types.TypeMessageMedia,
     types.TypeInputFileLocation
 ]
-EventType: t.TypeAlias = t.Literal['error', 'result', 'update', 'request']
+EventType = t.Literal['error', 'result', 'update', 'request']
 
-LikeTime: t.TypeAlias = t.Union[
+LikeTime = t.Union[
     int,
     float,
     datetime.date,
@@ -22,17 +23,17 @@ LikeTime: t.TypeAlias = t.Union[
     datetime.timedelta
 ]
 
-ParseMode: t.TypeAlias = t.Literal['html', 'md', 'markdown']
+ParseMode = t.Literal['html', 'md', 'markdown']
 
 URL = t.NewType('URL', str)
 Host = t.NewType('Host', str)
-NetAddr: t.TypeAlias = t.Tuple[Host, int]
-Address: t.TypeAlias = t.Union[URL, NetAddr]
+NetAddr = t.Tuple[Host, int]
+Address = t.Union[URL, NetAddr]
 
 #
 Phone = t.NewType('Phone', str)
 Token = t.NewType('Token', str)
-PhoneOrToken: t.TypeAlias = t.Union[Phone, Token]
+PhoneOrToken = t.Union[Phone, Token]
 
 #
 UserId = t.NewType('UserId', int)
@@ -41,10 +42,12 @@ ChannelId = t.NewType('ChannelId', int)
 
 Username = t.NewType('Username', str)
 
-AnyPeerId: t.TypeAlias = t.Union[UserId, ChatId, ChannelId]
-LikeEntity: t.TypeAlias = t.Union[
+AnyPeerId = t.Union[UserId, ChatId, ChannelId]
+LikeEntity = t.Union[
     str,
     int,
     types.TypePeer,
     types.TypeInputPeer
 ]
+
+StoredEntityType = t.Union[UserEntity, ChannelEntity]

@@ -6,12 +6,15 @@ import typing_extensions as te
 
 from functools import wraps
 
+from .. import models, alias
 from ..about import __version__, __update_command__
-from ..enums import EntityType
-from ..models import Entity
 
 from ..crypto import AuthKey
-from .abstract import DEFAULT_STATE_DATE, AbstractSession, AbstractPfsSession
+from .abstract import (
+    DEFAULT_STATE_DATE,
+    AbstractSession,
+    AbstractPfsSession
+)
 from ..network.datacenter import DEFAULT_DC_ID
 
 
@@ -271,25 +274,33 @@ class SqliteSession(BaseSqlite, AbstractSession):
             date='INTEGER DEFAULT 0'
         )
 
-        # entities
+        #
         self._create_table(
             cursor,
-            'entities',
+            'users',
             id='INTEGER PRIMARY KEY',
-            type='TEXT',
             access_hash='INTEGER',
             name='TEXT',
-            is_self='TINYINT DEFAULT 0',
+            phone='TEXT',
             username='TEXT',
-            phone_number='TEXT',
-            pts='INTEGER',
-            modified_at='DATETIME DEFAULT CURRENT_TIMESTAMP'
+            is_bot='TINYINT DEFAULT 0',
+            is_self='TINYINT DEFAULT 0',
+        )
+
+        self._create_table(
+            cursor,
+            'channels',
+            id='INTEGER PRIMARY KEY',
+            access_hash='INTEGER',
+            title='TEXT',
+            username='TEXT',
+            pts='INTEGER DEFAULT 0'
         )
 
         # index's
         cursor.execute(
             '''
-            CREATE INDEX IF NOT EXISTS `entities_is_self` ON `entities` (`is_self`)
+            CREATE INDEX IF NOT EXISTS `users_is_self` ON `users` (`is_self`)
             '''
         )
 
@@ -306,7 +317,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
         self._qts: int = 0
         self._seq: int = 0
         self._state_date: int = DEFAULT_STATE_DATE
-        self._entity: t.Optional[Entity] = None
+        self._self_entity: t.Optional[models.UserEntity] = None
 
         cursor.execute(
             '''
@@ -346,41 +357,11 @@ class SqliteSession(BaseSqlite, AbstractSession):
             self._seq = state[2]
             self._state_date = state[3]
         
-        # self-entities
-        cursor.execute(
-            '''
-            SELECT 
-                `id`,
-                `type`,
-                `access_hash`,
-                `name`,
-                `username`,
-                `phone_number`
-            FROM `entities` WHERE `is_self` = 1
-            '''
-        )
-        
-        entity = cursor.fetchone()
-        if entity:
-            entity_type = (
-                EntityType.from_char(entity[1])
-                if entity[1] else 
-                None  
-            )
-            self._entity = Entity(
-                entity[0],
-                entity_type,
-                entity[2],
-
-                name=entity[3],
-                is_self=True,
-                username=entity[4],
-                phone_number=entity[5]
-            )
+        self._self_entity = self.get_entity(is_self=True)
 
     @property
     def me(self):
-        return self._entity
+        return self._self_entity
 
     @property
     def dc_id(self):
@@ -456,105 +437,160 @@ class SqliteSession(BaseSqlite, AbstractSession):
         cursor: sqlite3.Cursor,
         *,
         id: int = None,
+        phone: str = None,
+        is_self: bool = None,
         username: str = None,
-        phone_number: str = None
-
-    ):
+    ) -> t.Optional[alias.StoredEntityType]:
 
         wheres = {}
+        is_channel = None
+
         if id is not None:
             wheres['id'] = id
 
-        if username is not None:
+        elif phone is not None:
+            is_channel = False
+            wheres['phone'] = phone
+
+        elif is_self is not None:
+            is_channel = False
+            wheres['is_self'] = True
+
+        elif username is not None:
             wheres['username'] = username
 
-        if phone_number is not None:
-            wheres['phone_number'] = phone_number
+        else:
+            raise ValueError(
+                'WHERE clause is empty (no id, is_self, username, or phone given).'
+            )
 
         if not wheres:
-            raise ValueError(
-                'WHERE clause is empty (no id, username, or phone_number given).'
+            return None
+
+        result = None
+        where_sql = ' AND '.join(f'{k} = ?' for k in wheres)
+
+        if not is_channel:
+            cursor.execute(
+                f'''
+                SELECT
+                    `id`,
+                    `access_hash`,
+                    `name`,
+                    `phone`,
+                    `username`,
+                    `is_bot`,
+                    `is_self`
+                FROM `users` WHERE {where_sql} LIMIT 1
+                ''',
+                tuple(wheres.values())
             )
+            result = cursor.fetchone()
+            if result is not None:
+                is_channel = False
 
-        where_sql = ' OR '.join(f'`{k}` = ?' for k in wheres)
-        cursor.execute(
-            f'''
-            SELECT 
-                `id`,
-                `type`,
-                `access_hash`,
-                `is_self`,
-                `name`,
-                `username`,
-                `phone_number`
-            FROM `entities` WHERE {where_sql}
-                LIMIT 1
-  
-            ''',
-            tuple(wheres.values())
-        )
+        if result is None and (is_channel or is_channel is None):
+            cursor.execute(
+                f'''
+                SELECT
+                    `id`,
+                    `access_hash`,
+                    `title`,
+                    `username`
+                FROM `channels` WHERE {where_sql} LIMIT 1
+                ''',
+                tuple(wheres.values())
+            )
+            result = cursor.fetchone()
+            if result is not None:
+                is_channel = True
 
-        result = cursor.fetchone()
         if result is not None:
-            entity_type = (
-                EntityType.from_char(result[1])
-                if result[1] else 
-                None  
-            )
+            if is_channel:
+                return models.ChannelEntity(
+                    result[0],
+                    result[1],
+                    title=result[2],
+                    username=result[3]
+                )
+            else:
+                return models.UserEntity(
+                    result[0],
+                    result[1],
+                    name=result[2],
+                    phone=result[3],
+                    username=result[4],
+                    is_bot=bool(result[5]),
+                    is_self=bool(result[6])
+                )
 
-            return Entity(
-                result[0],
-                entity_type,
-                result[2],
-                name=result[3],
-                is_self=result[4],
-                username=result[5],
-                phone_number=result[6]
-            )
+        return None
 
     @with_cursor
-    def upsert_entity(self, cursor: sqlite3.Cursor, entity: Entity): 
-        cursor.execute(
-            '''
-            INSERT INTO `entities` 
+    def upsert_entity(
+        self,
+        cursor: sqlite3.Cursor,
+        entity: alias.StoredEntityType
+    ):
+        is_channel = isinstance(entity, models.ChannelEntity)
+
+        if is_channel:
+            cursor.execute(
+                '''
+                INSERT INTO `channels` 
+                    (
+                        `id`,
+                        `access_hash`,
+                        `title`,
+                        `username`
+                    )
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(`id`) DO UPDATE SET 
+                    `access_hash` = COALESCE(EXCLUDED.access_hash, `access_hash`),
+                    `title` = COALESCE(EXCLUDED.title, `title`),
+                    `username` = COALESCE(EXCLUDED.username, `username`)
+                ''',
                 (
-                    `id`,
-                    `type`,
-                    `access_hash`,
-                    `is_self`,
-                    `name`,
-                    `username`,
-                    `phone_number`
+                    entity.id,
+                    entity.access_hash,
+                    entity.title,
+                    entity.username
                 )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                `type` = COALESCE(EXCLUDED.type, `type`),
-                `access_hash` = COALESCE(EXCLUDED.access_hash, `access_hash`),
-                `is_self` = COALESCE(EXCLUDED.is_self, `is_self`),
-                `name` = COALESCE(EXCLUDED.name, `name`),
-                `username` = COALESCE(EXCLUDED.username, `username`),
-                `phone_number` = COALESCE(EXCLUDED.phone_number, `phone_number`),
-                `pts` = COALESCE(EXCLUDED.pts, `pts`),
-                `modified_at` = CURRENT_TIMESTAMP
-
-            ''',
-            (
-                entity.id,
-                entity.type.char if entity.type else None,
-                entity.access_hash,
-                (
-                    (1 if entity.is_self else 0)
-                    if entity.is_self is not None else
-                    None
-                ),
-                entity.name,
-                entity.username,
-                entity.phone_number
             )
-        )
 
-        if entity.is_self:
-            self._entity = entity
+        else:
+            cursor.execute(
+                '''
+                INSERT INTO `users` 
+                    (
+                        `id`,
+                        `access_hash`,
+                        `name`,
+                        `phone`,
+                        `username`,
+                        `is_bot`,
+                        `is_self`
+                    )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(`id`) DO UPDATE SET 
+                    `access_hash` = COALESCE(EXCLUDED.access_hash, `access_hash`),
+                    `name` = COALESCE(EXCLUDED.name, `name`),
+                    `phone` = COALESCE(EXCLUDED.phone, `phone`),
+                    `username` = COALESCE(EXCLUDED.username, `username`)  
+                ''',
+                (
+                    entity.id,
+                    entity.access_hash,
+                    entity.name,
+                    entity.phone,
+                    entity.username,
+                    entity.is_bot,
+                    entity.is_self
+                )
+            )
+
+            if entity.is_self:
+                self._self_entity = entity
 
     # update state
     @with_cursor
@@ -602,7 +638,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
             '''
             SELECT 
                 `pts`
-            FROM `entities` WHERE `id` = ?
+            FROM `channels` WHERE `id` = ?
             ''',
             (id,)
         )
@@ -613,15 +649,14 @@ class SqliteSession(BaseSqlite, AbstractSession):
     def set_channel_pts(self, cursor: sqlite3.Cursor, id: int, pts: int):
         cursor.execute(
             '''
-            INSERT INTO `entities` 
+            INSERT INTO `channels` 
                 (
                     `id`,
                     `pts`  
                 )
             VALUES (?, ?)
             ON CONFLICT(`id`) DO UPDATE SET 
-                `pts` = COALESCE(EXCLUDED.pts, `pts`),
-                `modified_at` = CURRENT_TIMESTAMP
+                `pts` = COALESCE(EXCLUDED.pts, `pts`)
             ''',
             (id, pts)
         )

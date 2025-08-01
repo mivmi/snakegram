@@ -28,7 +28,6 @@ class Updates:
         self: 'Telegram',
         updates: t.Union[types.updates.Updates, types.updates.UpdatesCombined]
     ):
-
         for update in updates.updates:
             update._chats = updates.chats
             update._users = updates.users
@@ -365,31 +364,38 @@ class Updates:
 
                     else:
                         state = result.intermediate_state
-                    
-                    state_info.pts = state.pts
-                    state_info.seq = state.seq
-                    state_info.date = state.date
 
-                    for update in result.other_updates:
-                        await self._handle_single_update(update)
-
+                    updates = result.other_updates
                     for message in result.new_messages:
-                        update = types.update.UpdateNewMessage(
+                        new_message = types.update.UpdateNewMessage(
                             message,
                             pts=state.pts,
                             pts_count=0
                         )
-                        await self._handle_single_update(update) 
-
+                        updates.append(new_message)
+                    
                     for qts, message in enumerate(
                         result.new_encrypted_messages,
-                        start=state_info.qts - 1
+                        start=(state_info.qts or 1) - 1
                     ):
-                        update = types.update.UpdateNewEncryptedMessage(
+                        new_message = types.update.UpdateNewEncryptedMessage(
                             message,
                             qts=qts
                         )
-                        await self._handle_single_update(update) 
+                        updates.append(new_message)
+                        
+                    update = types.updates.Updates(
+                        updates,
+                        result.users,
+                        result.chats,
+                        date=0,
+                        seq=0
+                    )
+                                        
+                    state_info.pts = state.pts
+                    state_info.seq = state.seq
+                    state_info.date = state.date
+                    await self._updates_dispatcher(update)
 
                     if isinstance(result, types.updates.DifferenceSlice):
                         logger.debug('difference slice: fetching more differences')
@@ -452,20 +458,27 @@ class Updates:
                         )
                         break
 
-                    state_info.pts = result.pts
-                    for update in result.other_updates:
-                        await self._handle_single_update(update)
-
+                    updates = result.other_updates
                     # in polling mode, no need to handle `new_messages` and `new_encrypted_messages` here:
                     # they are already included as `UpdateNewMessage` and `UpdateNewEncryptedMessage` in `other_updates`.
                     if not update_state.is_polling:
                         for message in result.new_messages:
-                            update = types.update.UpdateNewChannelMessage(
+                            new_message = types.update.UpdateNewChannelMessage(
                                 message,
                                 pts=result.pts,
                                 pts_count=0
                             )
-                            await self._handle_single_update(update)
+                            updates.append(new_message)
+
+                    update = types.updates.Updates(
+                        updates,
+                        result.users,
+                        result.chats,
+                        date=0,
+                        seq=0
+                    )
+                    state_info.pts = result.pts
+                    await self._updates_dispatcher(update)
 
                     if result.final:
                         logger.debug(
@@ -526,9 +539,8 @@ class Updates:
                 entity = self._entities.get(channel_id)
                 
                 if entity is None:
-                    entity = models.Entity(
+                    entity = models.ChannelEntity(
                         channel_id,
-                        None,
                         access_hash=0
                     )
                     self._entities.add_or_update(channel_id, entity)
@@ -628,12 +640,12 @@ class Updates:
                 return False
 
             update_state = self._get_update_state(channel.id)
+
         else:
-            if cached.type and not cached.type.is_channel:
+            if isinstance(cached, models.ChannelEntity):
                 return False
 
             update_state = self._get_update_state(cached.id)
-            update_state.state_id.channel_id
 
         if update_state not in self._channel_polling:
             return False

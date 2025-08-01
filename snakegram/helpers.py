@@ -53,15 +53,17 @@ def parse_username(value: str) -> t.Optional[alias.Username]:
         flags=re.IGNORECASE
     )
     if result:
-        return result.group(1)
+        return alias.Username(result.group(1))
 
 def parse_phone_number(value: t.Union[int, str]) -> t.Optional[alias.Phone]:
     """Remove `non-digit` characters from a phone number."""
     if value is not None:
         if isinstance(value, int):
-            return str(value)
+            return alias.Phone(str(value))
 
-        return ''.join(re.findall(r'\d+', value))
+        phone = ''.join(re.findall(r'\d+', value))
+        if phone:
+            return alias.Phone(phone)
 
 #
 def get_display_name(obj: t.Union[types.User, types.TypeChat]):
@@ -75,6 +77,16 @@ def get_display_name(obj: t.Union[types.User, types.TypeChat]):
         result.append(getattr(obj, 'title', None))
 
     return ''.join(filter(None, result))
+
+def get_active_username(obj: t.Union[types.User, types.TypeChat]) -> t.Optional[alias.Username]:
+    """Get active username for a user or chat."""
+    username = getattr(obj, 'username', None)
+    if isinstance(username, str):
+        return alias.Username(username)
+
+    for item in (getattr(obj, 'usernames', None) or []):
+        if item.active:
+            return alias.Username(item.username)
 
 def update_order_key(update) -> int:
     """get sort key for the update based on `pts`/`qts` for ordering."""

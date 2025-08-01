@@ -4,8 +4,8 @@ import typing as t
 import typing_extensions as te
 
 from ... import errors
-from ...filters import run_filter, BaseFilter
 from ...gadgets.utils import to_string, maybe_await
+from ...gadgets.filter import run_filter, BaseFilter
 
 
 T = t.TypeVar('T')

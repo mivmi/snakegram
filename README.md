@@ -22,14 +22,13 @@ client = Telegram(
 
 @client.on_update(
     filters.new_message
-    & ~filters.magic.message.out
-    & (filters.magic.message.message.lower() == 'ping')
+    & (filters.proxy.message.message.lower() == 'ping')
 )
 async def ping_handler(update):
     await client.send_text(
         update.message.peer_id,
         '*PONG*',
-        reply_to=update.message.id
+        reply_to=update.message
     )
 
 client.start()

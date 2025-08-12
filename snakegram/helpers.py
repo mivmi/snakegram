@@ -1,9 +1,21 @@
 import re
+import mimetypes
 import typing as t
 
 from . import alias
-from .tl import types
+from .tl import LAYER, types
+from .core.internal import Uploader
 from .gadgets.utils import is_like_list
+
+T = t.TypeVar('T')
+
+def _unwrap_message(obj: T) -> t.Union[types.Message, T]:
+    if isinstance(obj, types.TypeUpdate):
+        message = getattr(obj, 'message', None)
+        if isinstance(message, types.Message):
+            obj = message
+
+    return obj
 
 def parse_json(data):
     """
@@ -66,6 +78,17 @@ def parse_phone_number(value: t.Union[int, str]) -> t.Optional[alias.Phone]:
             return alias.Phone(phone)
 
 #
+def guess_file_type(path: str):
+    mime_type, _ = mimetypes.guess_type(path)
+
+    if mime_type is None:
+        raise ValueError(
+            f'Failed to detect MIME type for file: {path!r}'
+        )
+
+    media_type = mime_type.split('/', maxsplit=1)[0]
+    return media_type, mime_type
+
 def get_display_name(obj: t.Union[types.User, types.TypeChat]):
     """Computes the display name from a User's names or Chat title"""
 
@@ -336,4 +359,215 @@ def cast_to_input_channel(obj, *, raise_error: bool = True):
         raise TypeError(
             f'Cannot cast {type(obj).__name__!r} '
             'to any kind of "types.TypeInputChannel".'
+        )
+
+
+# media
+def cast_to_input_media(obj, force_file: bool = False, *, raise_error: bool = True):
+    """attempts to cast an `obj` to `types.TypeInputMedia`"""
+    if isinstance(obj, types.TypeInputMedia):
+        return obj
+
+    obj = _unwrap_message(obj)
+    
+    if isinstance(obj, types.Message):
+        obj = obj.media
+
+    spoiler = getattr(obj, 'spoiler', False)
+    ttl_seconds = getattr(obj, 'ttl_seconds', None)
+    video_cover = getattr(obj, 'video_cover', None)
+    video_timestamp = getattr(obj, 'video_timestamp', None)
+
+    if isinstance(obj, types.MessageMediaUnsupported):
+        raise RuntimeWarning(
+            'This type of media'
+            f' is not supported in the current layer (Layer: {LAYER}).'
+        )
+
+    if isinstance(obj, Uploader):
+        obj = obj.result()
+        if obj is None:
+            raise RuntimeError('Upload has not been completed yet.')
+
+    if isinstance(obj, types.MessageMediaPhoto):
+        obj = obj.photo
+
+    if isinstance(obj, types.MessageMediaWebPage):
+        obj = obj.webpage
+
+    if isinstance(
+        obj,
+        (
+            types.MessageMediaDocument,
+            types.InputBotInlineResultDocument
+        )
+    ):
+        obj = obj.document
+    
+    if isinstance(
+        obj,
+        ( 
+            types.InputFileStoryDocument,
+            types.TypeInputStickeredMedia,
+            types.InputStickeredMediaDocument
+        )
+    ):
+        obj = obj.id
+
+    # upload
+    if isinstance(obj, (types.InputFile, types.InputFileBig)):
+        media_type, mime_type = guess_file_type(obj.name)
+
+        if media_type == 'image' and not force_file:
+            return types.InputMediaUploadedPhoto(
+                obj,
+                spoiler=spoiler,
+                ttl_seconds=ttl_seconds
+            )
+
+        else:
+            return types.InputMediaUploadedDocument(
+                obj,
+                mime_type=mime_type,
+                attributes=[
+                    types.DocumentAttributeFilename(obj.name)
+                ],
+                spoiler=spoiler,
+                video_cover=video_cover,
+                ttl_seconds=ttl_seconds
+            )
+
+    # photo
+    if isinstance(
+        obj,
+        (
+            types.TypePhoto,
+            types.photos.Photo,
+            types.TypeInputPhoto
+        )
+    ):
+        return types.InputMediaPhoto(
+            cast_to_input_photo(obj),
+            spoiler=spoiler,
+            ttl_seconds=ttl_seconds
+        )
+
+    # contact
+    if isinstance(obj, types.users.UserFull):
+        obj = next(
+            (
+                u for u in obj.users
+                if u.id == obj.full_user.id
+            )
+        )
+
+    if isinstance(obj, types.User):
+        return types.InputMediaContact(
+            obj.phone,
+            obj.first_name,
+            obj.last_name
+        )
+
+    if isinstance(obj, types.MessageMediaContact):
+        return types.InputMediaContact(
+            obj.phone_number,
+            obj.first_name,
+            obj.last_name,
+            vcard=obj.vcard
+        )
+
+    # document
+    if isinstance(
+        obj,
+        (
+            types.Document,
+            types.InputDocument,
+            types.TypeInputDocument
+        )
+    ):
+        return types.InputMediaDocument(
+            cast_input_document(obj),
+            spoiler=spoiler,
+            ttl_seconds=ttl_seconds,
+            video_cover=video_cover,
+            video_timestamp=video_timestamp
+        )
+
+    # webpage
+    if isinstance(obj, types.TypeWebPage):
+        if isinstance(obj, types.WebPageNotModified):
+            raise ValueError
+        
+        if obj.url is None:
+            raise ValueError
+
+        return types.InputMediaWebPage(obj.url)
+
+    if raise_error:
+        raise TypeError(
+            f'Cannot cast {type(obj).__name__!r} to "types.TypeInputMedia".'
+        )
+
+def cast_input_document(obj, *, raise_error: bool = True):
+    """attempts to cast an `obj` to `types.TypeInputDocument`"""
+
+    if isinstance(obj, types.TypeInputDocument):
+        return obj
+    
+    obj = _unwrap_message(obj)
+
+    if isinstance(obj, types.Message):
+        obj = obj.media
+    
+    if isinstance(obj, types.Document):
+        return types.InputDocument(
+            obj.id,
+            obj.access_hash,
+            file_reference=obj.file_reference
+        )
+    
+    if isinstance(obj, types.DocumentEmpty):
+        return types.InputDocumentEmpty()
+
+    if raise_error:
+        raise TypeError(
+            f'Cannot cast {type(obj).__name__!r} to "types.TypeInputDocument".'
+        )
+
+def cast_to_input_photo(obj, *, raise_error: bool = True) -> t.Optional[types.TypeInputPhoto]:
+    """attempts to cast an `obj` to `types.TypeInputPhoto`"""
+
+    if isinstance(obj, types.TypeInputPhoto):
+        return obj
+
+    obj = _unwrap_message(obj)
+
+    if isinstance(
+        obj,
+        (
+            types.photos.Photo,
+            types.MessageMediaPhoto
+        )
+    ):
+        obj = obj.photo
+
+    if isinstance(obj, types.Photo):
+        return types.InputPhoto(
+            obj.id,
+            obj.access_hash,
+            file_reference=obj.file_reference
+        )
+
+    if isinstance(obj, types.PhotoEmpty):
+        return types.InputPhotoEmpty()
+
+    if isinstance(obj, types.UserFull):
+        return cast_to_input_photo(obj.profile_photo)
+
+    if isinstance(obj, (types.Channel, types.Chat, types.User)):
+        return cast_to_input_photo(obj.photo)
+
+    if raise_error:
+        raise TypeError(
+            f'Cannot cast {type(obj).__name__!r} to "types.InputPhoto".'
         )

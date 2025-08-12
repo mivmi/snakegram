@@ -21,6 +21,7 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+_END_STREAM = object()
 # https://core.telegram.org/api/files#uploading-files
 MAX_CHUNK_SIZE = 512 * 1024
 UPLOAD_CHUNK_AUTO  = env('UPLOAD_CHUNK_AUTO', True, bool)
@@ -51,9 +52,10 @@ class Uploader:
         *,
         key: t.Optional[bytes] = None,
         iv: t.Optional[bytes] = None,
-        file_id: t.Optional[int] = None,
-        part_size: t.Optional[int] = None,
-        file_name: t.Optional[str] = None
+        file_id: int = None,
+        uploaded: int = 0,
+        part_size: int = None,
+        file_name: str = None
     ):
         
         if file is not None:
@@ -78,8 +80,7 @@ class Uploader:
 
         if file_name is None:
             file_name = f'{file_id}.bin'
-    
-    
+
         self.client = client
 
         self._file = file
@@ -108,13 +109,13 @@ class Uploader:
         self._buffer = bytearray()
 
         #
-        self._uploaded = 0
+        self._uploaded = uploaded
         self._done_time: t.Optional[float] = None
         self._start_time: t.Optional[float] = None
         self._connection: t.Optional[MediaConnection] = None
 
     # https://core.telegram.org/api/files#streamed-uploads
-    async def __call__(self, chunk: t.Optional[bytes] = None):
+    async def __call__(self, chunk: bytes):
         if self.is_done:
             raise RuntimeError(
                 'Upload is already completed or cancelled, '
@@ -125,22 +126,22 @@ class Uploader:
             raise RuntimeError(
                 'Uploader is initialized for normal (non-stream) upload.'
             )
-
+        
         async with self._lock:
-            if chunk is not None:
+            if chunk is not _END_STREAM:
                 self._buffer.extend(chunk)
 
             while not self.is_done:
                 if len(self._buffer) < self._part_size:
-                    # if chunk is `None` this indicates end of stream
-                    if chunk is None:
+                    # if chunk is `_END` this indicates end of stream
+                    if chunk is _END_STREAM:
                         break
                     return
 
                 await self._upload(self._buffer[:self._part_size])
                 self._buffer = self._buffer[self._part_size:]
 
-            if chunk is None:
+            if chunk is _END_STREAM:
                 # send remaining buffer (may be less than part size or even empty)
                 await self._upload(self._buffer)
                 self._buffer.clear()
@@ -208,7 +209,7 @@ class Uploader:
     def fingerprint(self):
         return self._fingerprint
 
-    #
+    #  
     def pause(self):
         self._lock_event.clear()
         logger.info('file upload paused: %d', self._file_id)
@@ -221,16 +222,18 @@ class Uploader:
         self._future.cancel()
         self._done_time = time.time()
         logger.info('file upload cancelled: %d', self._file_id)
+    
+    def result(self):
+        return self._future.result()
 
     async def _upload(self, chunk: bytes, total_parts: int = -1):
+        if not self.client.is_connected():
+            return self.cancel()
+
         if self._connection is None:
             logger.info('creating new media connection...')
             self._start_time = time.time()
             self._connection = await self.client.create_media_connection()
-
-        if not self._connection.is_connected():
-            self._connection.release()
-            await self._connection.connect()
 
         chunk_size = len(chunk)
         is_encrypted_file = bool(self._key and self._iv)
@@ -351,7 +354,9 @@ class Uploader:
             return await self._future
         
         if self.is_stream:
-            # await upload?
+            if self.uploaded:
+                return await self(_END_STREAM)
+
             raise RuntimeError(
                 'Uploader is initialized for streaming mode, '
                 'awaiting the uploader directly is not supported'
@@ -377,7 +382,12 @@ class Uploader:
                 total_parts
             )
 
-            for file_part in range(total_parts):
+            if self.uploaded > 0:
+                fp.seek(self.uploaded)
+
+            start_part = self._uploaded // self._part_size
+
+            for file_part in range(start_part, total_parts):
                 chunk = fp.read(self._part_size)
                 await self._upload(chunk, total_parts=total_parts)
 

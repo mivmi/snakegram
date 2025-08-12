@@ -73,6 +73,7 @@ class BaseSqlite:
     
     @with_cursor
     def _on_connect(self, cursor: sqlite3.Cursor):
+        self._create(cursor)
         try:
             cursor.execute('SELECT `version`, `lib_version` FROM `version` LIMIT 1;')
             version, lib_version = cursor.fetchone()
@@ -258,11 +259,12 @@ class SqliteSession(BaseSqlite, AbstractSession):
             # columns
             id='INTEGER PRIMARY KEY CHECK (`id` = 1)',
             dc_id=f'INTEGER DEFAULT {DEFAULT_DC_ID}',
+            user_id='INTEGER CHECK(user_id > 0)',
             auth_key='BLOB CHECK(LENGTH(`auth_key`) = 256)',
             created_at='INTEGER',
             time_offset='INTEGER DEFAULT 0',
         )
-        
+
         # state
         self._create_table(
             cursor,
@@ -281,10 +283,9 @@ class SqliteSession(BaseSqlite, AbstractSession):
             id='INTEGER PRIMARY KEY',
             access_hash='INTEGER',
             name='TEXT',
-            phone='TEXT',
-            username='TEXT',
             is_bot='TINYINT DEFAULT 0',
-            is_self='TINYINT DEFAULT 0',
+            phone='TEXT',
+            username='TEXT'
         )
 
         self._create_table(
@@ -295,13 +296,6 @@ class SqliteSession(BaseSqlite, AbstractSession):
             title='TEXT',
             username='TEXT',
             pts='INTEGER DEFAULT 0'
-        )
-
-        # index's
-        cursor.execute(
-            '''
-            CREATE INDEX IF NOT EXISTS `users_is_self` ON `users` (`is_self`)
-            '''
         )
 
         super()._create(cursor)
@@ -316,6 +310,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
         self._pts: int = 0
         self._qts: int = 0
         self._seq: int = 0
+        self._user_id: t.Optional[int] = None
         self._state_date: int = DEFAULT_STATE_DATE
         self._self_entity: t.Optional[models.UserEntity] = None
 
@@ -323,6 +318,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
             '''
             SELECT
                 `dc_id`,
+                `user_id`,
                 `auth_key`,
                 `created_at`,
                 `time_offset`
@@ -333,11 +329,12 @@ class SqliteSession(BaseSqlite, AbstractSession):
         
         if session:
             self._dc_id = session[0]
-            self._created_at = session[2]
-            self._time_offset = session[3]
+            self._user_id = session[1]
+            self._created_at = session[3]
+            self._time_offset = session[4]
 
-            if session[1] is not None:
-                self._auth_key.set_auth_key(session[1])
+            if session[2] is not None:
+                self._auth_key.set_auth_key(session[2])
 
         # state
         cursor.execute(
@@ -357,7 +354,8 @@ class SqliteSession(BaseSqlite, AbstractSession):
             self._seq = state[2]
             self._state_date = state[3]
         
-        self._self_entity = self.get_entity(is_self=True)
+        if self._user_id:
+            self._self_entity = self.get_entity(id=self._user_id)
 
     @property
     def me(self):
@@ -438,7 +436,6 @@ class SqliteSession(BaseSqlite, AbstractSession):
         *,
         id: int = None,
         phone: str = None,
-        is_self: bool = None,
         username: str = None,
     ) -> t.Optional[alias.StoredEntityType]:
 
@@ -452,16 +449,12 @@ class SqliteSession(BaseSqlite, AbstractSession):
             is_channel = False
             wheres['phone'] = phone
 
-        elif is_self is not None:
-            is_channel = False
-            wheres['is_self'] = True
-
         elif username is not None:
             wheres['username'] = username
 
         else:
             raise ValueError(
-                'WHERE clause is empty (no id, is_self, username, or phone given).'
+                'WHERE clause is empty (no id, username, or phone given).'
             )
 
         if not wheres:
@@ -477,10 +470,9 @@ class SqliteSession(BaseSqlite, AbstractSession):
                     `id`,
                     `access_hash`,
                     `name`,
-                    `phone`,
-                    `username`,
                     `is_bot`,
-                    `is_self`
+                    `phone`,
+                    `username`
                 FROM `users` WHERE {where_sql} LIMIT 1
                 ''',
                 tuple(wheres.values())
@@ -510,18 +502,18 @@ class SqliteSession(BaseSqlite, AbstractSession):
                 return models.ChannelEntity(
                     result[0],
                     result[1],
-                    title=result[2],
+                    result[2],
                     username=result[3]
                 )
             else:
                 return models.UserEntity(
                     result[0],
                     result[1],
-                    name=result[2],
-                    phone=result[3],
-                    username=result[4],
-                    is_bot=bool(result[5]),
-                    is_self=bool(result[6])
+                    result[2],
+                    bool(result[3]),
+                    (result[0] == self._user_id),
+                    phone=result[4],
+                    username=result[5]
                 )
 
         return None
@@ -566,12 +558,11 @@ class SqliteSession(BaseSqlite, AbstractSession):
                         `id`,
                         `access_hash`,
                         `name`,
-                        `phone`,
-                        `username`,
                         `is_bot`,
-                        `is_self`
+                        `phone`,
+                        `username`
                     )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(`id`) DO UPDATE SET 
                     `access_hash` = COALESCE(EXCLUDED.access_hash, `access_hash`),
                     `name` = COALESCE(EXCLUDED.name, `name`),
@@ -582,14 +573,25 @@ class SqliteSession(BaseSqlite, AbstractSession):
                     entity.id,
                     entity.access_hash,
                     entity.name,
-                    entity.phone,
-                    entity.username,
                     entity.is_bot,
-                    entity.is_self
+                    entity.phone,
+                    entity.username
                 )
             )
 
             if entity.is_self:
+                
+                if self._user_id is None:
+                    cursor.execute(
+                        '''
+                        UPDATE `session`
+                        SET `user_id` = ?
+                        WHERE `id` = ?
+                        ''',
+                        (entity.id, 1)
+                    )
+
+                self._user_id = entity.id
                 self._self_entity = entity
 
     # update state

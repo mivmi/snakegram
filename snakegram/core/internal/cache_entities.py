@@ -57,11 +57,11 @@ class CacheEntities(Cache):
                 value = models.UserEntity(
                     user.id,
                     user.access_hash,
-                    name=name,
+                    name,
+                    user.bot,
+                    user.is_self,
                     phone=user.phone,
-                    username=helpers.get_active_username(user),
-                    is_bot=user.bot,
-                    is_self=user.is_self
+                    username=helpers.get_active_username(user)
                 )
 
                 self.add_or_update(user.id, value, check=False)
@@ -84,12 +84,10 @@ class CacheEntities(Cache):
             access_hash: t.Optional[int] = getattr(chat, 'access_hash', None)
 
             if access_hash and not is_min:
-                title = helpers.get_display_name(chat)
-
                 value = models.ChannelEntity(
                     chat.id,
                     access_hash,
-                    title=title,
+                    helpers.get_display_name(chat),
                     username=helpers.get_active_username(chat)
                 )
 

@@ -539,10 +539,7 @@ class Updates:
                 entity = self._entities.get(channel_id)
                 
                 if entity is None:
-                    entity = models.ChannelEntity(
-                        channel_id,
-                        access_hash=0
-                    )
+                    entity = models.ChannelEntity(channel_id, 0)
                     self._entities.add_or_update(channel_id, entity)
 
                 state_info = models.StateInfo(

@@ -108,10 +108,9 @@ class AbstractSession(ABC):
         *,
         id: int = None,
         phone: str = None,
-        is_self: bool = None,
         username: str = None
     ) -> t.Optional['StoredEntityType']:
-        """get entity by `id`, `phone`, `is_self`, `username`."""
+        """get entity by `id`, `phone`, `username`."""
         pass
 
     @abstractmethod

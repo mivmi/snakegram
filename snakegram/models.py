@@ -20,10 +20,10 @@ class UserEntity:
             'id': self.id,
             'access_hash': self.access_hash,
             'name': self.name,
-            'phone': self.phone,
-            'username': self.username,
             'is_bot': self.is_bot,
-            'is_self': self.is_self
+            'is_self': self.is_self,
+            'phone': self.phone,
+            'username': self.username
         }
 
     def to_string(self, indent: t.Optional[int] = None):
@@ -32,23 +32,23 @@ class UserEntity:
     def __init__(
         self,
         id: int,
-        access_hash: t.Optional[int],
+        access_hash: int,
+        name: str,
+        is_bot: bool,
+        is_self: bool,
         *,
-        name: t.Optional[str] = None,
         phone: t.Optional['Phone'] = None,
         username: t.Optional['Username'] = None,
-        is_bot: t.Optional[bool] = None,
-        is_self: t.Optional[bool] = None
     ):
 
         self.id = id
         self.access_hash = access_hash
-
         self.name = name
-        self.phone = phone
-        self.username = username
         self.is_bot = is_bot
         self.is_self = is_self
+
+        self.phone = phone
+        self.username = username
 
     def to_input_peer(self):
         return types.InputPeerUser(
@@ -74,9 +74,9 @@ class ChannelEntity:
     def __init__(
         self,
         id: int,
-        access_hash: t.Optional[int],
+        access_hash: int,
+        title: str,
         *,
-        title: t.Optional[str] = None,
         username: t.Optional['Username'] = None
     ):
 

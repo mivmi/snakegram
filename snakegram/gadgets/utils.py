@@ -328,16 +328,16 @@ def is_like_list(obj) -> t.TypeGuard[t.Iterable[T_1]]:
         and not isinstance(obj, (str, bytes, bytearray))
     )
 
-def to_timestamp(obj) -> t.Optional[int]:
+def to_timestamp(obj) -> float:
     """convert various date/time inputs to a `UTC` timestamp."""
     def _to_timestamp(dt: datetime.datetime):
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=datetime.timezone.utc)
 
-        return int((dt - _EPOCH).total_seconds())
+        return (dt - _EPOCH).total_seconds()
 
     if isinstance(obj, (int, float)):
-        return int(obj)
+        return obj
 
     if isinstance(obj, datetime.datetime):
         return _to_timestamp(obj)
@@ -351,6 +351,15 @@ def to_timestamp(obj) -> t.Optional[int]:
         return _to_timestamp(
             obj + datetime.datetime.now(datetime.timezone.utc)
         )
+    
+    raise TypeError(
+        f'Unsupported type for ts conversion: {type(obj).__name__!r}'
+    )
+
+def time_difference(obj):
+    """get number of seconds between `obj` and now."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return to_timestamp(obj) - now.timestamp()
 
 # asyncio helpers
 @decorator

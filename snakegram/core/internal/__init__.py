@@ -1,4 +1,5 @@
 from .uploader import Uploader
+from .downloader import Downloader
 from .update_state import UpdateState
 from .event_handler import EventHandler
 from .cache_entities import CacheEntities
@@ -6,6 +7,7 @@ from .cache_entities import CacheEntities
 
 __all__ = [
     'Uploader',
+    'Downloader',
     'UpdateState',
     'EventHandler',
     'CacheEntities'

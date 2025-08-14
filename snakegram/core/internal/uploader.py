@@ -162,6 +162,10 @@ class Uploader:
         return self._file is None
 
     @property
+    def is_cancelled(self):
+        return self._future.cancelled()
+
+    @property
     def file_id(self):
         return self._file_id
 
@@ -223,9 +227,15 @@ class Uploader:
         self._done_time = time.time()
         logger.info('file upload cancelled: %d', self._file_id)
     
+    def close(self):
+        if self._connection:
+            self._connection.release()
+
+        self._connection = None
+
     def result(self):
         return self._future.result()
-
+    
     async def _upload(self, chunk: bytes, total_parts: int = -1):
         if not self.client.is_connected():
             return self.cancel()
@@ -267,6 +277,9 @@ class Uploader:
             )
         
         while not self.is_done:
+            if not self._lock_event.is_set():
+                logger.debug('Upload paused, waiting for resume signal...')
+
             await self._lock_event.wait()
 
             try:
@@ -301,7 +314,11 @@ class Uploader:
                 break
 
         if not self.is_done:
-            if chunk_size == self._part_size:
+            if (
+                file_part > total_parts
+                or
+                (total_parts == -1 and chunk)
+            ):
                 return
 
             self._done_time = time.time()
@@ -402,6 +419,7 @@ class Uploader:
                     break 
 
         finally:
+            self.close()
             if fp is not self._file:
                 fp.close()
 
@@ -422,10 +440,6 @@ class Uploader:
 
         else:
             return UPLOAD_CHUNK_SIZE
-
-    def __del__(self):
-        if self._connection is not None:
-            self._connection.release()
 
     def __await__(self):
         coro = self._upload_file()

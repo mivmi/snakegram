@@ -101,11 +101,18 @@ class Handshake:
             else:
                 logger.info('using valid temp auth key')
 
-        try:
-            await self.state.wait_for_new_session(TIMEOUT)
-        
-        except asyncio.TimeoutError:
-            pass
+        now = self.state.server_time()
+        created_at = self.state.active_session.created_at
+
+        if (
+            not created_at
+            or (now - created_at) > 30 * 60
+        ):
+            try:
+                await self.state.wait_for_new_session(TIMEOUT)
+
+            except asyncio.TimeoutError:
+                pass
 
         self.state.complete_handshake()
 

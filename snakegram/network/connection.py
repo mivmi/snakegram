@@ -957,7 +957,7 @@ class MediaConnection(Connection):
             self._active_session += 1
 
     async def disconnect(self, exception = None, reconnect = False):
-        async with self.lock:
+        async with self._lock:
             if reconnect:
                 if self._reconnect_event.is_set():
                     await self.wait(TIMEOUT)

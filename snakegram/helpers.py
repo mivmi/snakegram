@@ -1,9 +1,12 @@
 import re
+import os
 import mimetypes
 import typing as t
+from inspect import cleandoc
 
-from . import alias
+from . import alias, models
 from .tl import LAYER, types
+from .about import __update_command__
 from .core.internal import Uploader
 from .gadgets.utils import is_like_list
 
@@ -16,6 +19,15 @@ def _unwrap_message(obj: T) -> t.Union[types.Message, T]:
             obj = message
 
     return obj
+
+def _get_document_name(document: types.Document):
+    for attr in document.attributes:
+        if isinstance(attr, types.DocumentAttributeFilename):
+            return attr.file_name
+
+    ext = mimetypes.guess_extension(document.mime_type) or '.bin'
+    return f'document_{document.id}{ext}'
+
 
 def parse_json(data):
     """
@@ -385,7 +397,8 @@ def cast_to_input_media(obj, force_file: bool = False, *, raise_error: bool = Tr
         )
 
     if isinstance(obj, Uploader):
-        obj = obj.result()
+        obj = obj._future.result()
+
         if obj is None:
             raise RuntimeError('Upload has not been completed yet.')
 
@@ -486,7 +499,7 @@ def cast_to_input_media(obj, force_file: bool = False, *, raise_error: bool = Tr
         )
     ):
         return types.InputMediaDocument(
-            cast_input_document(obj),
+            cast_to_input_document(obj),
             spoiler=spoiler,
             ttl_seconds=ttl_seconds,
             video_cover=video_cover,
@@ -506,32 +519,6 @@ def cast_to_input_media(obj, force_file: bool = False, *, raise_error: bool = Tr
     if raise_error:
         raise TypeError(
             f'Cannot cast {type(obj).__name__!r} to "types.TypeInputMedia".'
-        )
-
-def cast_input_document(obj, *, raise_error: bool = True):
-    """attempts to cast an `obj` to `types.TypeInputDocument`"""
-
-    if isinstance(obj, types.TypeInputDocument):
-        return obj
-    
-    obj = _unwrap_message(obj)
-
-    if isinstance(obj, types.Message):
-        obj = obj.media
-    
-    if isinstance(obj, types.Document):
-        return types.InputDocument(
-            obj.id,
-            obj.access_hash,
-            file_reference=obj.file_reference
-        )
-    
-    if isinstance(obj, types.DocumentEmpty):
-        return types.InputDocumentEmpty()
-
-    if raise_error:
-        raise TypeError(
-            f'Cannot cast {type(obj).__name__!r} to "types.TypeInputDocument".'
         )
 
 def cast_to_input_photo(obj, *, raise_error: bool = True) -> t.Optional[types.TypeInputPhoto]:
@@ -571,3 +558,251 @@ def cast_to_input_photo(obj, *, raise_error: bool = True) -> t.Optional[types.Ty
         raise TypeError(
             f'Cannot cast {type(obj).__name__!r} to "types.InputPhoto".'
         )
+
+def cast_to_input_document(obj, *, raise_error: bool = True):
+    """attempts to cast an `obj` to `types.TypeInputDocument`"""
+
+    if isinstance(obj, types.TypeInputDocument):
+        return obj
+    
+    obj = _unwrap_message(obj)
+
+    if isinstance(obj, types.Message):
+        obj = obj.media
+    
+    if isinstance(obj, types.Document):
+        return types.InputDocument(
+            obj.id,
+            obj.access_hash,
+            file_reference=obj.file_reference
+        )
+    
+    if isinstance(obj, types.DocumentEmpty):
+        return types.InputDocumentEmpty()
+
+    if raise_error:
+        raise TypeError(
+            f'Cannot cast {type(obj).__name__!r} to "types.TypeInputDocument".'
+        )
+
+# 
+def get_photo_size(
+    sizes: t.List[types.TypePhotoSize],
+    type_code: str = None,
+    max_size: int = None
+):
+
+    def _get_size(size: types.TypePhotoSize) -> int:
+        if hasattr(size, 'size'):
+            return size.size
+
+        if hasattr(size, 'sizes'):
+            return max(size.sizes)
+
+        return 0
+
+    if type_code:
+        result = next(
+            (
+                e
+                for e in sizes
+                if e.type == type_code
+            ),
+            None
+        )
+
+    elif max_size is not None:
+        result = max(
+            (
+                e
+                for e in sizes
+                if (
+                    getattr(e, 'w', 0) <= max_size 
+                    and
+                    getattr(e, 'h', 0) <= max_size
+                )
+            ),
+            key=_get_size,
+            default=None
+        )
+
+    else:
+        result = max(sizes, key=_get_size, default=None)
+
+    return _get_size(result), result
+
+
+# https://core.telegram.org/api/files#vector-thumbnails
+def decode_vector_thumbnail(encoded: bytes):
+    """decode compressed vector thumbnail bytes into `SVG`."""
+    path = 'M'
+    lookup = 'AACAAAAHAAALMAAAQASTAVAAAZaacaaaahaaalmaaaqastava.az0123456789-,'
+
+    for byte in encoded:
+        num = byte
+        if num >= 192:
+            path += lookup[num - 192]
+        else:
+            if num >= 128:
+                path += ','
+            elif num >= 64:
+                path += '-'
+            path += str(num & 63)
+
+    path += 'z'
+
+    svg = f'''
+    <?xml version="1.0" encoding="utf-8"?>
+    <svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        viewBox="0 0 512 512" xml:space="preserve">
+    <path d="{path}"/>
+    </svg>
+    '''
+    return cleandoc(svg).encode(encoding='utf-8')
+
+# https://core.telegram.org/api/files#stripped-thumbnails
+def decode_stripped_thumbnail(data: bytes):
+    """convert stripped thumbnail bytes into `JPG`."""
+
+    if len(data) < 3 or data[0] != 1:
+        return data
+
+    footer = b'\xff\xd9'
+    header = (
+        b'\xff\xd8\xff\xe0\x00\x10\x4a\x46\x49'
+		b'\x46\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00\x43\x00\x28\x1c'
+		b'\x1e\x23\x1e\x19\x28\x23\x21\x23\x2d\x2b\x28\x30\x3c\x64\x41\x3c\x37\x37'
+		b'\x3c\x7b\x58\x5d\x49\x64\x91\x80\x99\x96\x8f\x80\x8c\x8a\xa0\xb4\xe6\xc3'
+		b'\xa0\xaa\xda\xad\x8a\x8c\xc8\xff\xcb\xda\xee\xf5\xff\xff\xff\x9b\xc1\xff'
+		b'\xff\xff\xfa\xff\xe6\xfd\xff\xf8\xff\xdb\x00\x43\x01\x2b\x2d\x2d\x3c\x35'
+		b'\x3c\x76\x41\x41\x76\xf8\xa5\x8c\xa5\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8'
+		b'\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8'
+		b'\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8\xf8'
+		b'\xf8\xf8\xf8\xf8\xf8\xff\xc0\x00\x11\x08\x00\x00\x00\x00\x03\x01\x22\x00'
+		b'\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01'
+		b'\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08'
+		b'\x09\x0a\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05'
+		b'\x04\x04\x00\x00\x01\x7d\x01\x02\x03\x00\x04\x11\x05\x12\x21\x31\x41\x06'
+		b'\x13\x51\x61\x07\x22\x71\x14\x32\x81\x91\xa1\x08\x23\x42\xb1\xc1\x15\x52'
+		b'\xd1\xf0\x24\x33\x62\x72\x82\x09\x0a\x16\x17\x18\x19\x1a\x25\x26\x27\x28'
+		b'\x29\x2a\x34\x35\x36\x37\x38\x39\x3a\x43\x44\x45\x46\x47\x48\x49\x4a\x53'
+		b'\x54\x55\x56\x57\x58\x59\x5a\x63\x64\x65\x66\x67\x68\x69\x6a\x73\x74\x75'
+		b'\x76\x77\x78\x79\x7a\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94\x95\x96'
+		b'\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6'
+		b'\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6'
+		b'\xd7\xd8\xd9\xda\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf1\xf2\xf3\xf4'
+		b'\xf5\xf6\xf7\xf8\xf9\xfa\xff\xc4\x00\x1f\x01\x00\x03\x01\x01\x01\x01\x01'
+		b'\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08'
+		b'\x09\x0a\x0b\xff\xc4\x00\xb5\x11\x00\x02\x01\x02\x04\x04\x03\x04\x07\x05'
+		b'\x04\x04\x00\x01\x02\x77\x00\x01\x02\x03\x11\x04\x05\x21\x31\x06\x12\x41'
+		b'\x51\x07\x61\x71\x13\x22\x32\x81\x08\x14\x42\x91\xa1\xb1\xc1\x09\x23\x33'
+		b'\x52\xf0\x15\x62\x72\xd1\x0a\x16\x24\x34\xe1\x25\xf1\x17\x18\x19\x1a\x26'
+		b'\x27\x28\x29\x2a\x35\x36\x37\x38\x39\x3a\x43\x44\x45\x46\x47\x48\x49\x4a'
+		b'\x53\x54\x55\x56\x57\x58\x59\x5a\x63\x64\x65\x66\x67\x68\x69\x6a\x73\x74'
+		b'\x75\x76\x77\x78\x79\x7a\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94'
+		b'\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4'
+		b'\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4'
+		b'\xd5\xd6\xd7\xd8\xd9\xda\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf2\xf3\xf4'
+		b'\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00'
+		b'\x3f\x00'
+    )
+
+    header[164] = data[1]
+    header[166] = data[2]
+    return header + data[3:] + footer
+
+#
+def get_file_info(obj, thumb_size: str = ''):
+    """Get file info for downloading file."""
+
+    obj = _unwrap_message(obj)
+
+    # unwrap media
+    if isinstance(obj, types.Message):
+        obj = obj.media
+
+    if isinstance(obj, types.MessageMediaStory):
+        obj = getattr(obj.story, 'media', None)
+
+    # unsupported media
+    if isinstance(obj, types.MessageMediaUnsupported):
+        raise RuntimeError(
+            f'This media type is not supported in layer {LAYER}. '
+            f'To fix this, update the package by running: {__update_command__}'
+        )
+
+    # inner
+    if isinstance(obj, types.MessageMediaPhoto):
+        obj = obj.photo
+
+    elif isinstance(obj, types.MessageMediaDocument):
+        obj = obj.document
+
+    elif (
+        isinstance(obj, types.MessageService)
+        and
+        isinstance(obj.action, types.MessageActionChatEditPhoto)
+    ):
+        obj = obj.action.photo
+
+    elif (
+        isinstance(obj, types.MessageMediaWebPage)
+        and
+        isinstance(obj.webpage, types.WebPage)
+    ):
+        obj = obj.webpage.document or obj.webpage.photo
+
+    dc_id = None
+    file_size = -1
+    file_name = None
+    input_file_location = (
+        obj
+        if isinstance(obj, types.TypeInputFileLocation) else 
+        None
+    )
+
+    if isinstance(obj, types.Photo):
+        dc_id = obj.dc_id
+        file_size, photo_size = get_photo_size(obj.sizes, thumb_size)
+
+        input_file_location = types.InputPhotoFileLocation(
+            obj.id,
+            obj.access_hash,
+            obj.file_reference,
+            thumb_size=photo_size.type
+        )
+
+    elif isinstance(obj, types.Document):
+        if thumb_size:
+            file_size, photo_size = get_photo_size(obj.thumbs, thumb_size)
+            thumb_size = photo_size.type
+
+        else:
+            file_size = obj.size
+            file_name = _get_document_name(obj)
+
+        dc_id = obj.dc_id
+        input_file_location = types.InputDocumentFileLocation(
+            obj.id,
+            obj.access_hash,
+            obj.file_reference,
+            thumb_size=thumb_size or ''
+        )
+
+    if input_file_location is None:
+        raise TypeError(f'Unsupported media type: {type(obj).__name__}')
+
+    if (
+        file_name is None
+        and getattr(obj, 'id', None)
+        and getattr(input_file_location, 'thumb_size', None) # photo
+    ):
+        file_name = f'image_{obj.id}.jpg'
+
+    return models.FileInfo(
+        input_file_location,
+        dc_id=dc_id,
+        file_size=file_size,
+        file_name=file_name
+    )

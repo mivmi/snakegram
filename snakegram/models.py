@@ -10,6 +10,34 @@ if t.TYPE_CHECKING:
     from .network.utils import Request
     from .gadgets.byteutils import TLObject
 
+class FileInfo:
+    def __repr__(self):
+        return self.to_string()
+
+    def to_dict(self):
+        return {
+            'location': self.location,
+            'dc_id': self.dc_id,
+            'file_size': self.file_size,
+            'file_name': self.file_name
+        }
+
+    def to_string(self, indent: t.Optional[int] = None):
+        return to_string(self, indent)
+
+    def __init__(
+        self,
+        location: types.TypeInputFileLocation,
+        *,
+        dc_id: t.Optional[int] = None,
+        file_size: int = -1,
+        file_name: t.Optional[str] = None
+    ):
+
+        self.dc_id = dc_id
+        self.location = location
+        self.file_size = file_size
+        self.file_name = file_name
 
 class UserEntity:
     def __repr__(self):

@@ -45,7 +45,7 @@ class Downloader:
         file_size: int = -1,
         downloaded: int = 0,
         is_precise: bool = False,
-        chunk_size: int = DOWNLOAD_CHUNK_SIZE,
+        chunk_size: int = None,
         cdn_supported: bool = True
     ):
         
@@ -62,7 +62,7 @@ class Downloader:
         self._file = file
         self._file_size = file_size
         self._downloaded = downloaded
-        self._chunk_size = chunk_size
+        self._chunk_size = chunk_size or DOWNLOAD_CHUNK_SIZE
         self._cdn_supported = cdn_supported
 
         #
@@ -92,6 +92,19 @@ class Downloader:
         self._connection: t.Optional['MediaConnection'] = None
         self._cdn_connection: t.Optional['MediaConnection'] = None
     
+    @property
+    def rate(self):
+        elapsed_time = self.elapsed_time
+    
+        if elapsed_time is None:
+            return 0.0
+
+        return (
+            0.0
+            if elapsed_time <= 0 else 
+            self._downloaded / elapsed_time
+        )
+
     @property
     def file_size(self):
         return self._file_size
@@ -151,33 +164,16 @@ class Downloader:
 
         return (self._done_time or time.time()) - self._start_time
 
-    @property
-    def download_rate(self):
-        elapsed_time = self.elapsed_time
-    
-        if elapsed_time is None:
-            return 0.0
-
-        return (
-            0.0
-            if elapsed_time <= 0 else 
-            self._downloaded / elapsed_time
-        )
-
-    @property
-    def _need_close_stream(self):
-        return (
-            self._file is not self._stream
-            and hasattr(self._stream, 'close')
-        )
-
     def close(self):
         self._buffer.clear()
         self._hashes.clear()
 
-        if self._need_close_stream:
+        if (
+            self._file is not self._stream
+            and hasattr(self._stream, 'close')
+        ):
             self._stream.close()
-    
+
         if self._connection:
             self._connection.release()
 

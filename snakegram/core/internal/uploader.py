@@ -149,6 +149,20 @@ class Uploader:
         if self.is_done:
             return await self._future
 
+    
+    @property
+    def rate(self):
+        elapsed_time = self.elapsed_time
+    
+        if elapsed_time is None:
+            return 0.0
+
+        return (
+            0.0
+            if elapsed_time <= 0 else 
+            self._uploaded / elapsed_time
+        )
+
     @property
     def is_big(self) -> bool:
         return self._file_size > 10 * 1024 * 1024
@@ -156,7 +170,11 @@ class Uploader:
     @property
     def is_done(self):
         return self._future.done()
-    
+
+    @property
+    def is_paused(self) -> bool:
+        return not self._lock_event.is_set()
+
     @property
     def is_stream(self):
         return self._file is None
@@ -197,19 +215,6 @@ class Uploader:
         return (self._done_time or time.time()) - self._start_time
 
     @property
-    def upload_rate(self):
-        elapsed_time = self.elapsed_time
-    
-        if elapsed_time is None:
-            return 0.0
-
-        return (
-            0.0
-            if elapsed_time <= 0 else 
-            self._uploaded / elapsed_time
-        )
-
-    @property
     def fingerprint(self):
         return self._fingerprint
 
@@ -233,9 +238,6 @@ class Uploader:
 
         self._connection = None
 
-    def result(self):
-        return self._future.result()
-    
     async def _upload(self, chunk: bytes, total_parts: int = -1):
         if not self.client.is_connected():
             return self.cancel()

@@ -6,7 +6,6 @@ from .tl import types # type: ignore
 from .models import UserEntity, ChannelEntity
 
 LikeFile = t.Union[str, Path, t.BinaryIO]
-EventType = t.Literal['error', 'result', 'update', 'request']
 
 LikeTime = t.Union[
     int,

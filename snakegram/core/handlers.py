@@ -1,66 +1,344 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 import typing as t
+import typing_extensions as te
 
-from .internal.event_handler import EventHandler
-
-from .. import alias, errors
-from ..models import _local_event
-from ..gadgets.utils import dualmethod, decorator
-
+from .. import errors
+from ..enums import EventType
+from ..gadgets.utils import decorator, maybe_await
+from ..gadgets.filter import BaseFilter, run_filter
 
 if t.TYPE_CHECKING:
-    from .telegram import Telegram
-    from ..tl.types import TypeUpdate
+    from ..tl.types import TypeUpdate # type: ignore
     from ..network.utils import Request
-    from ..gadgets.filter import BaseFilter
     from ..gadgets.tlobject import TLObject
+
+T = t.TypeVar('T')
+P = te.ParamSpec('P')
 
 logger = logging.getLogger(__name__)
 
-Obj = t.Union['Telegram', t.Type['Telegram']]
-_valid_event_types = {'error', 'update', 'result', 'request'}
+class FlowControl:
+    def __init__(self, name: str):
+        self._name = name
+        self._lock_event = asyncio.Event()
+        self._stop_event = asyncio.Event()
+        self._lock_event.set()
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def is_paused(self) -> bool:
+        return not self._lock_event.is_set()
+
+    @property
+    def is_stopped(self) -> bool:
+        return self._stop_event.is_set()
+
+    def pause(self):
+        self._lock_event.clear()
+        logger.debug('Paused %r', self._name)
+
+    def resume(self):
+        self._lock_event.set()
+        logger.debug('Resumed %r', self._name)
+
+    def stop(self):
+        self._stop_event.set()
+        logger.debug('Stopped %r', self._name)
+
+    def start(self):
+        self._stop_event.clear()
+        logger.debug('Started %r', self._name)
+
+class Router(FlowControl):
+    """
+    Router for handling events and subrouters.
+
+    Use it to register handlers for `updates`, `requests`, `results`, and `errors`.
+    Supports nested subrouters and lets you `start`, `stop`, `pause`, or `resume`
+    routers.
+
+    Example:
+    ```python
+    
+    # Create new router
+    my_router = Router('my-router')
+    
+    @my_router.on_update(filters.new_message)
+    async def new_message(update):
+        print(update.message.to_string(indent=2))
 
 
-class Handlers:
-    _global_error_handlers = []
-    _global_update_handlers = []
-    _global_result_handlers = []
-    _global_request_handlers = []
+    # Create a subrouter to manage AppConfig
 
-    @dualmethod
-    def _register_handler(
-        obj: Obj,
-        event_type: alias.EventType,
-        callback: t.Callable,
-        filter_expr: t.Optional['BaseFilter'] = None,
+    app_config = Router('app-config')
+
+    # Only for hold shared state
+    class AppState:
+        def __init__(self):
+            self.config = None
+
+        @property
+        def hash(self):
+            return self.config.hash if self.config else 0
+
+    state = AppState()
+
+    # Refresh `AppConfig` when an `UpdateConfig` is received
+
+    @app_config.on_update(
+        filters.proxy % types.update.UpdateConfig
+    )
+    async def config_updated(_):
+        await client(functions.help.GetAppConfig())
+
+
+    # set the cached hash before sending a `GetAppConfig` request
+    @app_config.on_request(
+        filters.proxy.query % functions.help.GetAppConfig
+    )
+    def set_app_config_hash(request):
+        request.query.hash = state.hash
+
+
+    # Handle the result of `GetAppConfig` requests
+    @app_config.on_result(
+        filters.proxy % types.help.TypeHelpAppConfig
+    )
+    async def result_app_config(result):
+        if isinstance(result, types.help.AppConfigNotModified):
+            # set the cached `AppConfig` if unchanged
+            await event.request.set_result(state.config)
+
+        else:
+            state.config = result
+
+    # Add the subrouter to the `my_router`
+    my_router.add_router(app_config)
+ 
+    ```
+    """
+
+    def __init__(self, name: str):
+        self._handlers: t.Dict[str, t.List[Handler]] = {
+            'error': [],
+            'update': [],
+            'result': [],
+            'request': []
+        }
+        self._subrouters: t.List[Router] = []
+        super().__init__(name=name)
+
+    async def __call__(self, event_type: EventType, event):
+        logger.debug(
+            'Running router %r: event=%r.',
+            self.name,
+            event_type.title
+        )
+
+        if self.is_stopped:
+            logger.debug(
+                'Router %r is stopped: skipping...',
+                self.name
+            )
+
+        else:
+            if self.is_paused:
+                logger.debug(
+                    'Router %r is paused, waiting to resume',
+                    self.name
+                )
+
+                await self._lock_event.wait()
+
+            for handler in self.get_handlers(event_type):
+                logger.debug(
+                    'Router %r dispatching to handler %r.',
+                    self.name,
+                    handler.name
+                )
+    
+                try:
+                    await handler.execute(event)
+
+                except errors.StopPropagation:
+                    logger.debug(
+                        'Router %r propagation stopped by handler %r.',
+                        self.name,
+                        handler.name
+                    )
+                    raise 
+
+                except errors.StopRouterPropagation:
+                    logger.debug(
+                        'Router %r stopped by handler %r.',
+                        self.name,
+                        handler.name
+                    )
+        
+                    return
+                    
+                except Exception as exc:
+                    logger.exception(
+                        'Unexpected error while running handler %r: %s',
+                        handler.name,
+                        exc
+                    )
+
+            for sub in list(self._subrouters):
+                logger.debug(
+                    'Router forwarding event to subrouter %r',
+                    sub.name
+                )
+                await sub(event_type, event)
+
+    #
+    @property
+    def subrouters(self) -> t.List[Router]:
+        return list(self._subrouters)
+
+    #
+    def register(
+        self,
+        func: t.Callable[P, T],
+        event_type: EventType,
+        filter_expr: t.Optional[BaseFilter] = None
     ):
-        if event_type not in _valid_event_types:
+        """
+        Register a handler for a specific event type.
+
+        Args:
+            func (Callable):
+                The function to call when the event occurs.
+
+            event_type (`EventType`):
+                The type of event to handle.
+
+            filter_expr (`BaseFilter`, optional):
+                Optional filter to match specific events.
+
+        Example:
+            ```python
+            async def print_rpc_errors(error):
+                print(f'Error: {error}, Request: {error.request}')
+
+            my_router = Router('my-router')
+            my_router.register(
+                rpc_errors,
+                EventType.Error,
+                filters.proxy % errors.RpcError
+            )
+            ```
+
+        Note:
+            You can skip calling `register` directly.
+            The decorators `on_update`, `on_request`, `on_result`, `on_error`
+            do the same thing in a simpler way.
+        """
+        if isinstance(func, Handler):
+            func = func.func
+
+        try:
+            handler = Handler(
+                f'<{self.name}.{event_type.title}: {func}>',
+                func,
+                event_type,
+                filter_expr=filter_expr,
+                unregister_callback=self.unregister
+            )
+            self._handlers[event_type.title].append(handler)
+
+        except (KeyError, AttributeError):
+            raise ValueError(f'Invalid handler type: {event_type!r}')
+        
+        return handler
+
+    def unregister(self, handler: Handler) -> bool:
+        """
+        Unregister a handler from this router.
+
+        Args:
+            handler (Handler): The handler to remove.
+        """
+        try:
+            kind = handler.event_type.title
+            self._handlers[kind].remove(handler)
+
+        except ValueError:
+            raise ValueError(
+                f'Handler {handler.name!r} not found in {self.name!r}'
+            )
+
+        except (KeyError, AttributeError):
+            raise ValueError(f'Invalid handler type: {handler.event_type!r}')
+          
+        return True
+
+
+    def get_handlers(self, event_type: EventType) -> t.List[Handler]:
+        """
+        Get all handlers for a given event type.
+
+        Args:
+            event_type (EventType): The type of event.
+
+        Returns:
+            List[Handler]: A list of handlers for the event type.
+
+        """
+        try:
+            return list(self._handlers[event_type.title])
+
+        except (KeyError, AttributeError):
             raise ValueError(f'Invalid handler type: {event_type!r}')
 
-        handler_list: list = getattr(
-            obj,
-            (
-                f'_global_{event_type}_handlers'
-                if isinstance(obj, type) else
-                f'_{event_type}_handlers'
+    def add_router(self, router: Router):
+        """
+        Add a subrouter to this router.
+
+        Args:
+            router (`Router`): The router to add as a subrouter.
+
+        """
+        if router in self._subrouters:
+            raise ValueError(
+                f'Subrouter {router.name!r} is already added in {self.name!r}'
             )
-        )
 
-        result = EventHandler(
-            f'<{event_type}: {callback!r}>',
-            callback,
-            filter_expr,
-            handler_list
-        )
-        handler_list.append(result)
-        return result
+        self._subrouters.append(router)
+        logger.debug('Added subrouter %r into %r.', router.name, self.name)
 
+    def remove_router(self, router: Router):
+        """
+        Remove a subrouter from this router.
+
+        Args:
+            router (Router): The router to remove.
+
+        """
+        try:
+            self._subrouters.remove(router)
+            logger.debug(
+                'Removed subrouter %r from %r',
+                router.name, self.name
+            )
+
+        except ValueError:
+            raise ValueError(
+                f'Subrouter {router.name!r} not found in {self.name!r}'
+            )
+
+    #
     @decorator
-    @dualmethod
     def on_error(
-        obj: Obj,
-        callback: t.Callable[[errors.RpcError], t.Any],
-        filter_expr: t.Optional['BaseFilter'] = None
+        self,
+        func: t.Callable[[errors.RpcError], t.Any],
+        filter_expr: t.Optional[BaseFilter] = None
     ):
         """
         Register a handler for `RpcError`.
@@ -70,7 +348,7 @@ class Handlers:
         for the specified time.
 
         Args:
-            callback (Callable[[RpcError], Any]):
+            func (Callable[[RpcError], Any]):
                 Function to call when an error occurs.
 
             filter_expr (`BaseFilter`, optional):
@@ -78,7 +356,9 @@ class Handlers:
 
         Example:
             ```python
-            @client.on_error(filters.proxy % errors.FloodWaitError)
+            my_router = Router('my-router')
+
+            @my_router.on_error(filters.proxy % errors.FloodWaitError)
             async def flood_wait_handler(error):
                 if error.seconds < 60:
                     await asyncio.sleep(error.seconds)
@@ -90,23 +370,21 @@ class Handlers:
             You can also register the handler manually without using the decorator:
 
             ```python
-            async def flood_wait_handler(error):
-                ...
-
-            client.on_error(flood_wait_handler, filters.proxy % errors.FloodWaitError)
+            my_router.on_error(flood_wait_handler, filters.proxy % errors.FloodWaitError)
             ```
-
-        Note:
-            When called on the class (`Telegram.on_error`), the handler is registered globally for all instances.
         """
-        return obj._register_handler('error', callback, filter_expr=filter_expr)
+
+        return self.register(
+            func,
+            EventType.Error,
+            filter_expr=filter_expr
+        )
 
     @decorator
-    @dualmethod
     def on_update(
-        obj: Obj,
-        callback: t.Callable[['TypeUpdate'], t.Any],
-        filter_expr: t.Optional['BaseFilter'] = None
+        self,
+        func: t.Callable[['TypeUpdate'], t.Any],
+        filter_expr: t.Optional[BaseFilter] = None
     ):
         """
         Register a handler for incoming updates.
@@ -114,7 +392,7 @@ class Handlers:
         This lets you listen for any updates received.
 
         Args:
-            callback (Callable[[TypeUpdate], Any]):
+            func (Callable[[TypeUpdate], Any]):
                 Function that handles the incoming update.
 
             filter_expr (`BaseFilter`, optional):
@@ -122,12 +400,9 @@ class Handlers:
 
         Example:
             ```python
-            @client.on_update(
-                filters.proxy % (
-                    types.UpdateNewMessage,
-                    types.UpdateNewChannelMessage
-                )
-            )
+            my_router = Router('my-router')
+
+            @my_router.on_update(filters.new_message)
             async def handle_new_messages(update):
                 print('New message:', update.message)
             ```
@@ -135,26 +410,23 @@ class Handlers:
             You can also register the handler manually without using the decorator:
 
             ```python
-            client.on_update(
+            my_router.on_update(
                 handle_new_messages,
-                filters.proxy % (
-                    types.UpdateNewMessage,
-                    types.UpdateNewChannelMessage
-                )
+                filters.proxy % filters.new_message
             )
             ```
-
-        Note:
-            When called on the class (`Telegram.on_update`), the handler is registered globally for all instances.
         """
-        return obj._register_handler('update', callback, filter_expr=filter_expr)
+        return self.register(
+            func,
+            EventType.Update,
+            filter_expr=filter_expr
+        )
 
     @decorator
-    @dualmethod
     def on_result(
-        obj: Obj,
-        callback: t.Callable[['TLObject'], t.Any],
-        filter_expr: t.Optional['BaseFilter'] = None
+        self,
+        func: t.Callable[['TLObject'], t.Any],
+        filter_expr: t.Optional[BaseFilter] = None
     ):
         """
         Register a handler for `RpcResult`.
@@ -163,7 +435,7 @@ class Handlers:
         it's returned to the original caller.
 
         Args:
-            callback (Callable[[TLObject], Any]):
+            func (Callable[[TLObject], Any]):
                 Function to handle the result.
 
             filter_expr (`BaseFilter`, optional):
@@ -171,9 +443,9 @@ class Handlers:
 
         Example:
             ```python
-            @client.on_result(
-                filters.proxy % types.update.UpdateConfig
-            )
+            my_router = Router('my-router')
+
+            @my_router.on_result(filters.proxy % types.Config)
             async def set_config(result):
                 ...
             ```
@@ -181,20 +453,20 @@ class Handlers:
             You can also register the handler manually without using the decorator:
 
             ```python
-            client.on_result(set_config, filters.proxy % types.update.UpdateConfig)
+            my_router.on_result(set_config, filters.proxy % types.Config)
             ```
-
-        Note:
-            When called on the class (`Telegram.on_result`), the handler is registered globally for all instances.
         """
-        return obj._register_handler('result', callback, filter_expr=filter_expr)
+        return self.register(
+            func,
+            EventType.Result,
+            filter_expr=filter_expr
+        )
 
     @decorator
-    @dualmethod
     def on_request(
-        obj: Obj,
-        callback: t.Callable[['Request'], t.Any],
-        filter_expr: t.Optional['BaseFilter'] = None
+        self,
+        func: t.Callable[['Request'], t.Any],
+        filter_expr: t.Optional[BaseFilter] = None
     ):
         """
         Register a handler to intercept outgoing requests before they're sent.
@@ -204,7 +476,7 @@ class Handlers:
         required time.
 
         Args:
-            callback (Callable[[Request], Any]):
+            func (Callable[[Request], Any]):
                 Function to handle the outgoing request
     
             filter_expr (`BaseFilter`, optional):
@@ -213,10 +485,11 @@ class Handlers:
             
         Example:
         ```python
+        my_router = Router('my-router')
         
-        @client.on_request
+        @my_router.on_request
         async def flood_wait(request):
-            wait_until = flood_wait_cache.get(type(request.query))
+            wait_until = flood_wait_cache.get(request.query._id)
 
             if wait_until:
                 delay = int(wait_until - time.time())
@@ -226,308 +499,82 @@ class Handlers:
 
         You can also register the handler manually without using the decorator:
         ```python
-        client.on_request(flood_wait)
+        my_router.on_request(flood_wait)
         ```
-
-        Note:
-            When called on the class (`Telegram.on_request`), the handler is registered globally for all instances.
         """
-        return obj._register_handler('request', callback, filter_expr=filter_expr)
+        return self.register(
+            func,
+            EventType.Request,
+            filter_expr=filter_expr
+        )
 
-    @dualmethod
-    def get_handlers(
-        obj: Obj,
-        event_type: alias.EventType,
-        *,
-        scope: t.Literal['all', 'local', 'global'] = 'all'
-    ) -> t.Iterable[EventHandler]:
-        """
-        Get event handlers for a given event type and scope.
+class Handler(t.Generic[P, T], FlowControl):
+    def __init__(
+        self,
+        name: str,
+        func: t.Callable[P, T],
+        event_type: EventType,
+        filter_expr: t.Optional[BaseFilter],
+        unregister_callback: t.Callable[['Handler'], t.Any] = None
+    ):
 
-        Args:
-            event_type (alias.EventType):
-                The type of event handlers.
+        self.func = func
+        self.event_type = event_type
+        self.filter_expr = filter_expr
+        self._unregister_callback = unregister_callback
 
-            scope (Literal['all', 'local', 'global'], optional):
-                The scope of handlers to include:
-                - "all": both local and global handlers (default).
-                - "local": local handlers registered.
-                - "global": global handlers registered.
-        """
-        if event_type not in _valid_event_types:
-            raise ValueError(f'Invalid handler type: {event_type!r}')
+        super().__init__(name=name)
 
-        if isinstance(obj, type):
-            if scope == 'local':
-                raise RuntimeError(
-                    'Local scope is not available when called from the class'
-                )
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
+        return self.func(*args, **kwargs)
 
-            scope = 'global'
-
-        def _iter_handlers(): 
-            if scope in ('all', 'local'):
-                yield from getattr(
-                    obj,
-                    f'_{event_type}_handlers',
-                    []
-                )
-
-            if scope in ('all', 'global'):
-                handlers = getattr(
-                    obj,
-                    f'_global_{event_type}_handlers',
-                    []
-                )
-
-                if isinstance(obj, type):
-                    yield from handlers
-
-                else:
-                    for handler in handlers:
-                        if handler not in obj._disabled_global_handlers:
-                            yield handler
-
-        return _iter_handlers()
-
-    @classmethod
-    def is_global_handler(cls, handler: EventHandler) -> bool:
-        """check if the handler is registered as a global handler."""
-
-        for handler_list in [
-            cls._global_error_handlers,
-            cls._global_update_handlers,
-            cls._global_result_handlers,
-            cls._global_request_handlers
-        ]:
-            if handler in handler_list:
-                return True
-        return False
-
-    def enable_global_handler(self: 'Telegram', handler: EventHandler):
-        """
-        Enable a previously disabled global handler.
-        
-        Args:
-            handler (EventHandler): The global handler to enable.
- 
-        Returns:
-            bool: True if the handler was enabled, False if it was not disabled before.
-
-        """
-        if handler not in self._disabled_global_handlers:
+    def unregister(self):
+        if self._unregister_callback is None:
             return False
 
-        self._disabled_global_handlers.discard(handler)
-        return True
-
-    def disable_global_handler(self: 'Telegram', handler: EventHandler):
-        """
-        Disable a global handler for this instance.
+        status = self._unregister_callback(self)
+        if status:
+            logger.debug(
+                'Successfully unregistered handler %r.',
+                self.name
+            )
         
-        global handlers are enabled by default for all instances.
-        use this method to disable a global handler only for the current instance.
-        
-        Args:
-            handler (EventHandler): The global handler to disable.
-        
-        Returns:
-            bool: True if the handler was successfully disabled, False if the handler was already disabled.
-        """
-        if handler in self._disabled_global_handlers:
-            return False
-        
-        if not self.is_global_handler(handler):
-            raise ValueError(f'Handler {handler.name!r} is not a global handler.')
+        return bool(status)
 
-        self._disabled_global_handlers.add(handler)
-        return True
+    async def execute(self, value):
+        logger.debug('Running handler %r.', self.name)
 
-    #
-    async def _update_callback(self, update: 'TypeUpdate'):
-        """Execute `update` handlers."""
+        if self.is_stopped:
+            logger.debug(
+                'Handler %r is stopped: skipping...',
+                self.name
+            )
 
-        update_type = type(update).__name__
-        logger.debug(f'Start handling update: {update_type!r}')
-        _local_event._set_event(self, update=update)
+        else:
+            if self.filter_expr:
+                try:
+                    result = await run_filter(self.filter_expr, value)
 
-        for handler in self.get_handlers('update'):
+                except Exception:
+                    logger.exception(
+                        'Error while evaluating filter for handler %r.',
+                        self.name
+                    )
+                    return
 
-            try:
-                await handler.execute(update)
-            
-            except errors.StopPropagation:
-                logger.info(
-                    f'Handler {handler.name!r} stopped propagation.'
+                if not result:
+                    logger.debug(
+                        'Filter did not match for handler %r, skipping...',
+                        self.name
+                    )
+                    return
+
+            if self.is_paused:
+                logger.debug(
+                    'Handler %r is paused, waiting to resume',
+                    self.name
                 )
 
-                return 
+                await self._lock_event.wait()
 
-            except Exception:
-                logger.exception(
-                    'Unexpected error in handler '
-                    f'{handler.name!r} while handling update: {update_type!r}'
-                )
-
-        logger.info(f'Finished handling update: {update_type!r}')
-
-    async def _error_callback(self, error: errors.BaseError, request: 'Request'):
-        """Execute `error` handlers."""
-        
-        request_id = request.msg_id or id(request)
-        logger.debug(
-            f'Start handling error for request {request_id}',
-            exc_info=error
-        )
-        _local_event._set_event(
-            self,
-            error=error,
-            request=request
-        )
-
-        for handler in self.get_handlers('error'):
-
-            try:
-                await handler.execute(error)
-
-            except errors.StopPropagation:
-                logger.info(
-                    f'Handler {handler.name!r} stopped propagation.'
-                )
-
-                return 
-    
-            except errors.BaseError as exc:
-                await request.set_exception(exc)
-
-            except Exception:
-                logger.exception(
-                    'Unexpected error in handler '
-                    f'{handler.name!r} while handling request {request_id} error.'
-                )
-
-            if request.done():
-                if logger.isEnabledFor(logging.INFO):
-                    exc = request.exception()
-                    if exc:
-                        error_type = type(exc).__name__
-            
-                        logger.info(
-                            f'Handler {handler.name!r} registered exception '
-                            f'({error_type!r}) for request {request_id}: {exc}'
-                        )
-                            
-                    else:
-                        logger.info(
-                            f'Handler {handler.name!r} '
-                            'resolved error and set result for request '
-                            f'{request_id}: {request.result()}'
-                        )
-
-                return
-
-        logger.info(f'Finished handling error for request {request_id}.')
-
-    async def _result_callback(self, result: 'TLObject', request: 'Request'):
-        """Execute `result` handlers."""
-
-        request_id = request.msg_id or id(request)
-        logger.debug(f'Start handling result for request {request_id}.')
-        _local_event._set_event(
-            self,
-            result=result,
-            request=request
-        )
-        for handler in self.get_handlers('result'):
-
-            try:
-                await handler.execute(result)
-
-            except errors.StopPropagation:
-                logger.info(
-                    f'Handler {handler.name!r} stopped propagation.'
-                )
-                return 
-    
-            except errors.BaseError as err:
-                await request.set_exception(err)
-
-            except Exception:
-                logger.exception(
-                    'Unexpected error in handler '
-                    f'{handler.name!r} while handling result for result: {request_id!r}'
-                )
-
-            if request.done():
-                if logger.isEnabledFor(logging.INFO):
-                    exc = request.exception()
-                    if exc:
-                        error_type = type(exc).__name__
-            
-                        logger.info(
-                            f'Handler {handler.name!r} registered exception '
-                            f'({error_type!r}) for request {request_id}: {exc}'
-                        )
-        
-                    else:
-                        logger.info(
-                            f'Handler {handler.name!r} set the result '
-                            f'for request ({request_id}): {request.result()}'
-                        )
-                return
-
-        logger.info(f'Finished handling result for request {request_id}.')
-
-    async def _request_callback(self, request: 'Request'):
-        """Execute pre-send `request` handlers."""
-
-        request_id = request.msg_id or id(request)
-        logger.debug(
-            'Start pre-send '
-            f'request handling for {request.name!r} ({request_id})'
-        )
-        _local_event._set_event(self, request=request)
-
-        for handler in self.get_handlers('request'):
-            print(handler)
-            try:
-                await handler.execute(request)
-
-            except errors.StopPropagation:
-                logger.info(
-                    f'Handler {handler.name!r} stopped propagation.'
-                )
-                return
-
-            except errors.BaseError as exc:
-                # errors of type `BaseError` prevent the request from being sent to the server.
-                await request.set_exception(exc)
-    
-            except Exception:
-                logger.exception(
-                    'Unexpected error in handler '
-                    f'{handler.name!r} while handling pre-send request {request_id!r}'
-                )
-
-            if request.done():
-                if logger.isEnabledFor(logging.INFO):
-                    exception = request.exception()
-                    if exception:
-                        error_type = type(exception).__name__
-                        logger.info(
-                            f'Handler {handler.name!r} registered exception '
-                            f'({error_type!r}) for request {request_id}: {exc}'
-                        )
-                    else:
-                        logger.info(
-                            f'Handler {handler.name!r} returned a '
-                            f'final result for request {request_id}. '
-                            f'the request will not be sent: {request.result()}'
-                        )
-
-                return
-
-        logger.info(
-            'Finished pre-send request '
-            f'handling for {request.name!r} ({request_id})'
-        )
+            return await maybe_await(self.func(value))

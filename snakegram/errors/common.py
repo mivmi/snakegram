@@ -28,6 +28,10 @@ class StopPropagation(BaseError):
     """Stop event propagation to subsequent handlers"""
     pass
 
+class StopRouterPropagation(BaseError):
+    """Stop only the current router's event processing."""
+    pass
+
 class HandshakeFailedError(BaseError):
     """Raised when the handshake fails"""
     pass

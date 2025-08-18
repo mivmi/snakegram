@@ -3,16 +3,18 @@ import asyncio
 import logging
 import platform
 import typing as t
+import typing_extensions as te
 
 from .methods import Methods
-from .handlers import Handlers
+from .handlers import Router, Handler
 from .internal import CacheEntities
-from .. import about, helpers
-
+from .. import about, errors, helpers
+from ..enums import EventType
+from ..models import _local_event, EventContext
 
 from ..tl import LAYER, types, functions
 from ..crypto import get_public_key, add_public_key
-from ..gadgets.utils import adaptive
+from ..gadgets.utils import adaptive, decorator
 from ..gadgets.tlobject import TLObject
 
 from ..session import SqliteSession, MemorySession, MemoryPfsSession
@@ -25,8 +27,12 @@ from ..network.transport import TcpTransport
 from ..network.transport.abstract import AbstractTransport
 
 
+if t.TYPE_CHECKING:
+    from ..gadgets.filter import BaseFilter
 
 T = t.TypeVar('T')
+P = te.ParamSpec('P')
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +40,36 @@ DEFAULT_TRANSPORT = TcpTransport(codec=AbridgedCodec())
 DEFAULT_SESSION_CLASS = SqliteSession
 DEFAULT_PFS_SESSION_CLASS = MemoryPfsSession
 
-class Telegram(Handlers, Methods):
+
+
+class MainRouter(Router):
+    def __init__(self, client: 'Telegram', routers: t.List[Router]):
+        super().__init__('__main__')
+
+        for router in routers:
+            self.add_router(router)
+
+        self.client = client
+
+    async def __call__(self, type, event, request: 'Request' = None):
+        _local_event._ctx.set(
+            EventContext(
+                self.client,
+                type,
+                event,
+                request=request
+            )
+        )
+
+        try:
+            await super().__call__(type, event)
+
+        except errors.StopPropagation:
+            pass
+
+
+
+class Telegram(Methods):
     _config: t.Optional[types.Config] = None
 
     def __init__(
@@ -43,6 +78,7 @@ class Telegram(Handlers, Methods):
         api_id: t.Union[str, int],
         api_hash: str,
         *,
+        routers: t.List[Router] = [],
         lang_pack: str = '',
         lang_code: str = 'en',
         app_version: str = about.__version__,
@@ -99,14 +135,15 @@ class Telegram(Handlers, Methods):
         self.system_version = system_version or uname.version
         self.params = params or {}
         
+        #
+        self._main_router = MainRouter(self, routers)
+
         self.session = session
         self.connection = Connection(
             session,
             transport.spawn(),
             pfs_session,
-            error_callback=self._error_callback,
-            result_callback=self._result_callback,
-            request_callback=self._request_callback,
+            event_callback=self._main_router,
             updates_callback=self._updates_dispatcher,
             init_connection_callback=self._init_connection_callback
         )
@@ -114,13 +151,6 @@ class Telegram(Handlers, Methods):
 
         self._tasks = set()
         self._authorized = False
-        
-        #
-        self._error_handlers = []
-        self._update_handlers = []
-        self._result_handlers = []
-        self._request_handlers = []
-        self._disabled_global_handlers = set()
 
         # Dict[models.StateId, UpdateState]
         self._update_states = {}
@@ -142,6 +172,7 @@ class Telegram(Handlers, Methods):
             ordered=ordered
         )
 
+    # connection
     def is_connected(self):
         return self.connection.is_connected()
 
@@ -168,7 +199,7 @@ class Telegram(Handlers, Methods):
         connection = self._media_connections.get(
             (dc_id, is_cdn)
         )
-        
+
         if connection is None:
             if self.session.dc_id == dc_id:
                 session = self.session
@@ -184,9 +215,7 @@ class Telegram(Handlers, Methods):
                 dc_id=dc_id,
                 is_cdn=is_cdn,
                 use_ipv6=self.connection.use_ipv6,
-                error_callback=self._error_callback,
-                result_callback=self._result_callback,
-                request_callback=self._request_callback,
+                event_callback=self._main_router,
                 public_key_getter=self._find_cdn_public_key,
                 init_connection_callback=self._init_connection_callback
             )
@@ -194,6 +223,7 @@ class Telegram(Handlers, Methods):
 
         await connection.connect()
         return connection
+
         
     # privates
     def _save_state_and_entities(self):
@@ -281,3 +311,265 @@ class Telegram(Handlers, Methods):
         ):
             Telegram._config = result
             datacenter.update_dc_address(result.dc_options)
+
+    #
+    @property
+    def routers(self):
+        """Get all subrouters attached to this main router."""
+        return self._main_router.subrouters
+
+    @property
+    def get_handlers(self):
+        return self._main_router.get_handlers
+    
+    def add_router(self, router: Router):
+        """
+        Add a subrouter to main router.
+
+        Args:
+            router (`Router`): The router to add.
+
+        """
+        if isinstance(router, MainRouter):
+            if self is router.client:
+                raise RuntimeError(
+                    'Cannot add a `MainRouter` to its own client'
+                )
+
+            for sub in list(router.subrouters):
+                self.add_router(sub)
+        
+        else:
+            self._main_router.add_router(router)
+
+    def remove_router(self, router: Router):
+        """
+        Remove a subrouter from main router.
+
+        Args:
+            router (Router): The router to remove.
+        """
+        if isinstance(router, MainRouter):
+            for sub in list(router.subrouters):
+                self.remove_router(sub)
+        
+        else:
+            self._main_router.remove_router(router)
+
+    def register_handler(
+        self,
+        func: t.Callable[P, T],
+        event_type: EventType,
+        filter_expr: t.Optional['BaseFilter'] = None
+    ):
+        """
+        Register a handler for a specific event type.
+
+        Args:
+            func (Callable):
+                The function to call when the event occurs.
+
+            event_type (`EventType`):
+                The type of event to handle.
+
+            filter_expr (`BaseFilter`, optional):
+                Optional filter to match specific events.
+
+        Example:
+            ```python
+            async def print_rpc_errors(error):
+                print(f'Error: {error}, Request: {error.request}')
+
+            client.register_handler(
+                rpc_errors,
+                EventType.Error,
+                filters.proxy % errors.RpcError
+            )
+            ```
+
+        Note:
+            You can skip calling `register_handler` directly.
+            The decorators `on_update`, `on_request`, `on_result`, `on_error`
+            do the same thing in a simpler way.
+        """
+
+        return self._main_router.register(func, event_type, filter_expr)
+
+    def unregister_handler(self, handler: Handler) -> bool:
+        """
+        Unregister a handler.
+
+        Args:
+            handler (Handler): The handler to remove.
+        """
+        return self._main_router.unregister(handler)
+
+    # proxy to main router
+    @decorator
+    def on_error(
+        self,
+        func: t.Callable[[errors.RpcError], t.Any],
+        filter_expr: t.Optional['BaseFilter'] = None
+    ):
+        """
+        Register a handler for `RpcError`.
+
+        Use this to handle requests that raise errors. For example, if a request
+        causes a `FloodWaitError`, you can catch it and retry after waiting
+        for the specified time.
+
+        Args:
+            func (Callable[[RpcError], Any]):
+                Function to call when an error occurs.
+
+            filter_expr (`BaseFilter`, optional):
+                Optional filter to match specific error events.
+
+        Example:
+            ```python
+            @client.on_error(filters.proxy % errors.FloodWaitError)
+            async def flood_wait_handler(error):
+                if error.seconds < 60:
+                    await asyncio.sleep(error.seconds)
+                    await error.request.set_result(
+                        await client(event.request.query)
+                    )
+            ```
+
+            You can also register the handler manually without using the decorator:
+
+            ```python
+            client.on_error(flood_wait_handler, filters.proxy % errors.FloodWaitError)
+            ```
+        """
+
+        return self.register_handler(
+            func,
+            EventType.Error,
+            filter_expr=filter_expr
+        )
+    
+    @decorator
+    def on_update(
+        self,
+        func: t.Callable[[types.update.TypeUpdate], t.Any],
+        filter_expr: t.Optional['BaseFilter'] = None
+    ):
+        """
+        Register a handler for incoming updates.
+
+        This lets you listen for any updates received.
+
+        Args:
+            func (Callable[[TypeUpdate], Any]):
+                Function that handles the incoming update.
+
+            filter_expr (`BaseFilter`, optional):
+                Optional filter to match specific updates.
+
+        Example:
+            ```python
+            @client.on_update(filters.new_message)
+            async def handle_new_messages(update):
+                print('New message:', update.message)
+            ```
+
+            You can also register the handler manually without using the decorator:
+
+            ```python
+            client.on_update(
+                handle_new_messages,
+                filters.proxy % filters.new_message
+            )
+            ```
+        """
+        return self.register_handler(
+            func,
+            EventType.Update,
+            filter_expr=filter_expr
+        )
+
+    @decorator
+    def on_result(
+        self,
+        func: t.Callable[['TLObject'], t.Any],
+        filter_expr: t.Optional['BaseFilter'] = None
+    ):
+        """
+        Register a handler for `RpcResult`.
+
+        This lets you intercept and process the result of any request before
+        it's returned to the original caller.
+
+        Args:
+            func (Callable[[TLObject], Any]):
+                Function to handle the result.
+
+            filter_expr (`BaseFilter`, optional):
+                Optional filter to match specific results.
+
+        Example:
+            ```python
+
+            @client.on_result(filters.proxy % types.Config)
+            async def set_config(result):
+                ...
+            ```
+
+            You can also register the handler manually without using the decorator:
+
+            ```python
+            client.on_result(set_config, filters.proxy % types.Config)
+            ```
+        """
+        return self.register_handler(
+            func,
+            EventType.Result,
+            filter_expr=filter_expr
+        )
+    
+    @decorator
+    def on_request(
+        self,
+        func: t.Callable[[Request], t.Any],
+        filter_expr: t.Optional['BaseFilter'] = None
+    ):
+        """
+        Register a handler to intercept outgoing requests before they're sent.
+
+        Use this to handle requests before they're dispatched to the server.
+        For example, if you anticipate a `FloodWaitError`, you can wait the
+        required time.
+
+        Args:
+            func (Callable[[Request], Any]):
+                Function to handle the outgoing request
+    
+            filter_expr (`BaseFilter`, optional):
+                Optional filter to match specific requests.
+
+            
+        Example:
+        ```python
+        
+        @client.on_request
+        async def flood_wait(request):
+            wait_until = flood_wait_cache.get(request.query._id)
+
+            if wait_until:
+                delay = int(wait_until - time.time())
+                if delay > 0:
+                    await asyncio.sleep(delay)
+        ```
+
+        You can also register the handler manually without using the decorator:
+        ```python
+        client.on_request(flood_wait)
+        ```
+        """
+        return self.register_handler(
+            func,
+            EventType.Request,
+            filter_expr=filter_expr
+        )
+    

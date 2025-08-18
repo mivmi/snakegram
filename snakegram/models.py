@@ -1,6 +1,6 @@
 import typing as t
 
-from . import enums
+from . import enums, errors
 from .tl import types
 from .gadgets.utils import to_string, Local
 
@@ -193,7 +193,7 @@ class StateInfo:
 
 class EventContext:
     def __bool__(self):
-        return bool(self._client)
+        return self.client is not None
 
     def __repr__(self):
         return self.to_string()
@@ -207,57 +207,75 @@ class EventContext:
             'update': self.update,
             'request': self.request 
         }
-    
+
     def to_string(self, indent: t.Optional[int] = None):
         return to_string(self, indent=indent)
 
     def __init__(
         self,
         client: t.Optional['Telegram'] = None,
+        type: t.Optional[enums.EventType] = None,
+        data: t.Optional[t.Any] = None,
         *,
-        error: t.Optional[Exception] = None,
-        result: t.Optional['TLObject'] = None,
-        update: t.Optional[types.TypeUpdate] = None,
         request: t.Optional['Request'] = None
     ):
-        
         self.client = client
-        self.error = error
-        self.result = result
-        self.update = update
-        self.request = request
+
+        #
+        self._type = type
+        self._data = data
+        
+        error = None
+        result = None
+        update = None
+        
+        if self.is_error:
+            error = data
+            if (
+                request is None
+                and isinstance(error, errors.RpcError)
+            ):
+                request = error.request
+
+        if self.is_result:
+            result = data
+        
+        if self.is_update:
+            update = data
+
+        if self.is_request:
+            request = data
+
+        self._error = error
+        self._result = result
+        self._update = update
+        self._request = request
 
     @property
-    def type(self) -> enums.EventType:
-        if self.client is None:
-            return enums.EventType.Null
-
-        elif self.error is not None:
-            return enums.EventType.Error
-        
-        elif self.result is not None:
-            return enums.EventType.Result
-        
-        elif self.update is not None:
-            return enums.EventType.Update
-        
-        else:
-            return enums.EventType.Request
+    def type(self):
+        return self._type
 
     @property
     def data(self):
-        return (
-            self.error 
-            or self.result
-            or self.update
-            or self.request
-            or None
-        )
+        return self._data
 
     @property
-    def is_set(self):
-        return self.type is not enums.EventType.Null
-
+    def error(self) -> t.Optional[Exception]:
+        return self._error
+    
+    @property
+    def update(self) -> t.Optional[types.update.TypeUpdate]:
+        return self._update
+    
+    @property
+    def result(self) -> t.Optional['TLObject']:
+        return self._result
+    
+    @property
+    def request(self) -> t.Optional['Request']:
+        return self._request
+    
+    # flags
     @property
     def is_error(self):
         return self.type is enums.EventType.Error
@@ -274,25 +292,6 @@ class EventContext:
     def is_request(self):
         return self.type is enums.EventType.Request
 
-    @classmethod
-    def _set_event(
-        cls,
-        client: t.Optional['Telegram'] = None,
-        *,
-        error: t.Optional[Exception] = None,
-        result: t.Optional['TLObject'] = None,
-        update: t.Optional[types.TypeUpdate] = None,
-        request: t.Optional['Request'] = None
-    ):
-        _local_event._ctx.set(
-            cls(
-                client,
-                error=error,
-                result=result,
-                update=update,
-                request=request
-            )
-        )
 
 class MessageEntity:
     def __repr__(self):

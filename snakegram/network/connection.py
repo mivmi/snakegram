@@ -3,7 +3,7 @@ import asyncio
 import logging
 import typing as t
 from collections import deque
-
+from inspect import iscoroutine
 
 from .utils import State, Request, RequestQueue, is_service_message
 from .message import EncryptedMessage, UnencryptedMessage
@@ -11,6 +11,7 @@ from .handshake import Handshake
 
 from .. import errors
 from ..tl import types, mtproto
+from ..enums import EventType
 from ..gadgets.tlobject import TLObject
 from ..gadgets.utils import Timer, env, retry, cancel, to_async
 from ..gadgets.byteutils import Reader
@@ -63,12 +64,8 @@ class Connection:
         is_cdn: bool = False,
         is_media: bool = False,
         use_ipv6: bool = False,
-        
-        error_callback: t.Optional[t.Callable[[errors.RpcError, Request], t.Awaitable]] = None,
-        result_callback: t.Optional[t.Callable[[TLObject, Request], t.Awaitable]] = None,
-        request_callback: t.Optional[t.Callable[[Request], t.Awaitable]] = None,
-        updates_callback: t.Optional[t.Callable[[TLObject], t.Awaitable]] = None,
-        
+        event_callback: t.Callable[[EventType, t.Any, t.Optional['Request']], t.Any] = None,  
+        updates_callback: t.Optional[t.Callable[[TLObject], t.Any]] = None,
         public_key_getter: t.Callable[[t.List[int]], t.Tuple[int, 'PublicKey']] = None,
         init_connection_callback: t.Optional[t.Callable[['Connection'], t.Awaitable]] = None
     ):
@@ -78,9 +75,7 @@ class Connection:
         self.is_cdn = is_cdn
         self.is_media = is_media
         self.use_ipv6 = use_ipv6
-    
-        self._error_callback = error_callback
-        self._result_callback = result_callback
+        self._event_callback = event_callback
         self._updates_callback = updates_callback
         self._init_connection_callback = init_connection_callback
 
@@ -98,7 +93,7 @@ class Connection:
         )
         self._request_queue = RequestQueue(
             self.state,
-            request_callback=request_callback
+            event_callback=self._event_callback
         )
 
         # events
@@ -154,8 +149,7 @@ class Connection:
             request = Request(
                 query,
                 invoke_after=after,
-                error_callback=self._error_callback,
-                result_callback=self._result_callback
+                event_callback=self._event_callback
             )
 
             requests.append(request)
@@ -727,13 +721,15 @@ class Connection:
             await request.set_exception(exc)
 
     async def _new_update_handler(self, message: types.updates.TypeUpdates):
-        if callable(self._updates_callback):
-            coro = self._updates_callback(message)
-            asyncio.create_task(coro)
+        if not self.is_media:
+            if callable(self._updates_callback):
+                coro = self._updates_callback(message)
+                if iscoroutine(coro):
+                    asyncio.create_task(coro)
 
-        else:
-            logger.warning('no callback set for updates: %r', message)
-    
+            else:
+                logger.warning('no callback set for updates: %r', message)
+
     async def _future_salts_handler(self, message: mtproto.types.TypeFutureSalts):
         # Server salts tied to auth key, not session
         for salt in message.salts:
@@ -783,7 +779,7 @@ class Connection:
         # server provides a fresh salt upon new session creation.
         self.state.set_server_salt(message.server_salt)
 
-        if not (self.is_cdn or self.is_media):
+        if not self.is_media:
             # send `UpdatesTooLong` update to indicate missed update gap,
             # triggering the client to call `updates.GetDifference` for a full sync
 
@@ -913,9 +909,7 @@ class MediaConnection(Connection):
         dc_id = None,
         is_cdn = False,
         use_ipv6 = False,
-        error_callback = None,
-        result_callback = None,
-        request_callback = None,
+        on_event = None,
         public_key_getter = None,
         init_connection_callback = None
     ):
@@ -927,9 +921,7 @@ class MediaConnection(Connection):
             is_cdn=is_cdn,
             is_media=True,
             use_ipv6=use_ipv6,
-            error_callback=error_callback,
-            result_callback=result_callback,
-            request_callback=request_callback,
+            on_event=on_event,
             public_key_getter=public_key_getter,
             init_connection_callback=init_connection_callback
         )

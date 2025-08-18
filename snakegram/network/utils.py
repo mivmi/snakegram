@@ -6,9 +6,10 @@ from collections import deque
 
 from .message import RawMessage, EncryptedMessage, UnencryptedMessage
 from ..tl import mtproto, functions
+from ..enums import EventType
 from ..errors import RpcError, BaseError, SecurityError
 
-from ..gadgets.utils import env
+from ..gadgets.utils import env, maybe_await
 from ..gadgets.tlobject import TLRequest, TLObject
 from ..gadgets.byteutils import Long
 
@@ -179,7 +180,6 @@ class State:
                 'Timed out waiting for new session'
             )
 
-
 class Request(t.Generic[T]):
     def __repr__(self):
         return f'<Request name={self.name!r}, done={self.done()}>'
@@ -187,18 +187,17 @@ class Request(t.Generic[T]):
     def __init__(
         self,
         query: TLRequest[T],
+        *,
         msg_id: int = None,
         invoke_after: 'Request' = None,
-        error_callback: t.Callable[[RpcError, 'Request'], t.Any] = None,
-        result_callback: t.Callable[[T, 'Request'], t.Any] = None
+        event_callback: t.Callable[[EventType, t.Any, 'Request'], t.Any] = None
     ):
         self.query = query
         self.msg_id = msg_id
         self.invoke_after = invoke_after
+        self.event_callback = event_callback
 
         #
-        self.error_callback = error_callback
-        self.result_callback = result_callback
 
         self.acked = False
         self.container_id: t.Optional[int] = None
@@ -241,31 +240,35 @@ class Request(t.Generic[T]):
         self._future.add_done_callback(lambda _: fn(self))
 
     async def set_result(self, result: T):
-        if callable(self.result_callback):
+        if self.event_callback is not None:
             try:
-                await self.result_callback(result, self)
+                coro = self.event_callback(
+                    EventType.Result,
+                    result,
+                    self
+                )
+                await maybe_await(coro)
 
-            except BaseError as err: 
-                await self.set_exception(err)
+            except BaseError as exc: 
+                await self.set_exception(exc)
                 return
-
-            except Exception:
-                pass
 
         if not self.done():
             self._future.set_result(result)
 
     async def set_exception(self, exception: Exception):
         if isinstance(exception, RpcError):
-            if callable(self.error_callback):
+            if self.event_callback is not None:
                 try:
-                    await self.error_callback(exception, self)
+                    coro = self.event_callback(
+                        EventType.Error,
+                        exception,
+                        self
+                    )
+                    await maybe_await(coro)
 
-                except BaseError as err:
-                    exception = err
-
-                except Exception:
-                    pass
+                except BaseError as exc:
+                    exception = exc
 
         if not self.done():
             self._future.set_exception(exception)
@@ -274,11 +277,11 @@ class RequestQueue:
     def __init__(
         self,
         state: State,
-        request_callback: t.Optional[t.Callable[['Request'], t.Awaitable]] = None
+        event_callback: t.Callable[[EventType, t.Any], t.Any] = None,
     ):
 
         self.state = state
-        self.request_callback = request_callback
+        self.event_callback = event_callback
   
         self._event = asyncio.Event()
         self._deque: deque[Request] = deque()
@@ -436,12 +439,16 @@ class RequestQueue:
         result = []
         for request in requests:
 
-            if self.request_callback:
-                new = await self.request_callback(request)
+            if self.event_callback is not None:
+                coro = self.event_callback(
+                    EventType.Request,
+                    request
+                )
+                new_request = await maybe_await(coro)
 
                 # if it returned a new `Request`, replace it
-                if isinstance(new, Request):
-                    request = new
+                if isinstance(new_request, Request):
+                    request = new_request
 
             if not request.done():
                 result.append(request)

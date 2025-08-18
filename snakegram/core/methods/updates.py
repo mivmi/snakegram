@@ -3,6 +3,7 @@ import logging
 import typing as t
 
 from ..internal import UpdateState
+from ...enums import EventType
 from ... import alias, models, errors, helpers
 from ...tl import types, functions
 from ...gadgets.utils import env
@@ -79,8 +80,9 @@ class Updates:
             await self._fetch_channel_difference(
                 self._get_update_state(channel_id)
             )
-            
-        self._create_new_task(self._update_callback(update))
+
+        coro = self._main_router(EventType.Update, update)
+        self._create_new_task(coro)
 
     #
     async def _updates_dispatcher(

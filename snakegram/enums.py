@@ -18,11 +18,14 @@ class Operation(enum.Enum):
         return self in (Operation.Or, Operation.And, Operation.Not)
 
 class EventType(enum.Enum):
-    Null = enum.auto()
     Error = enum.auto()
     Result = enum.auto()
     Update = enum.auto()
     Request = enum.auto()
+    
+    @property
+    def title(self):
+        return self.name.lower()
 
 class MessageEntityType(enum.IntEnum):
     Mention = enum.auto()

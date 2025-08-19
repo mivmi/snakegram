@@ -20,42 +20,7 @@ P = te.ParamSpec('P')
 
 logger = logging.getLogger(__name__)
 
-class FlowControl:
-    def __init__(self, name: str):
-        self._name = name
-        self._lock_event = asyncio.Event()
-        self._stop_event = asyncio.Event()
-        self._lock_event.set()
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def is_paused(self) -> bool:
-        return not self._lock_event.is_set()
-
-    @property
-    def is_stopped(self) -> bool:
-        return self._stop_event.is_set()
-
-    def pause(self):
-        self._lock_event.clear()
-        logger.debug('Paused %r', self._name)
-
-    def resume(self):
-        self._lock_event.set()
-        logger.debug('Resumed %r', self._name)
-
-    def stop(self):
-        self._stop_event.set()
-        logger.debug('Stopped %r', self._name)
-
-    def start(self):
-        self._stop_event.clear()
-        logger.debug('Started %r', self._name)
-
-class Router(FlowControl):
+class Router:
     """
     Router for handling events and subrouters.
 
@@ -125,6 +90,7 @@ class Router(FlowControl):
     """
 
     def __init__(self, name: str):
+        self.name = name
         self._handlers: t.Dict[str, t.List[Handler]] = {
             'error': [],
             'update': [],
@@ -132,8 +98,40 @@ class Router(FlowControl):
             'request': []
         }
         self._subrouters: t.List[Router] = []
-        super().__init__(name=name)
+        
+        #
+        self._lock_event = asyncio.Event()
+        self._stop_event = asyncio.Event()
+        self._lock_event.set()
+    
+    @property
+    def is_paused(self) -> bool:
+        return not self._lock_event.is_set()
 
+    @property
+    def is_stopped(self) -> bool:
+        return self._stop_event.is_set()
+
+    def pause(self):
+        if self._lock_event.is_set():
+            self._lock_event.clear()
+            logger.info('Router %r paused.', self._name)
+
+    def resume(self):
+        if not self._lock_event.is_set():
+            self._lock_event.set()
+            logger.info('Router %r resumed.', self._name)
+
+    def stop(self):
+        if not self._stop_event.is_set():
+            self._stop_event.set()
+            logger.info('Router %r stopped.', self._name)
+
+    def start(self):
+        if self._stop_event.is_set():
+            self._stop_event.clear()
+            logger.info('Router %r started.', self._name)
+        
     async def __call__(self, event_type: EventType, event):
         logger.debug(
             'Running router %r: event=%r.',
@@ -142,14 +140,14 @@ class Router(FlowControl):
         )
 
         if self.is_stopped:
-            logger.debug(
+            logger.info(
                 'Router %r is stopped: skipping...',
                 self.name
             )
 
         else:
             if self.is_paused:
-                logger.debug(
+                logger.info(
                     'Router %r is paused, waiting to resume',
                     self.name
                 )
@@ -157,7 +155,7 @@ class Router(FlowControl):
                 await self._lock_event.wait()
 
             for handler in self.get_handlers(event_type):
-                logger.debug(
+                logger.info(
                     'Router %r dispatching to handler %r.',
                     self.name,
                     handler.name
@@ -167,7 +165,7 @@ class Router(FlowControl):
                     await handler.execute(event)
 
                 except errors.StopPropagation:
-                    logger.debug(
+                    logger.info(
                         'Router %r propagation stopped by handler %r.',
                         self.name,
                         handler.name
@@ -175,7 +173,7 @@ class Router(FlowControl):
                     raise 
 
                 except errors.StopRouterPropagation:
-                    logger.debug(
+                    logger.info(
                         'Router %r stopped by handler %r.',
                         self.name,
                         handler.name
@@ -508,29 +506,31 @@ class Router(FlowControl):
             filter_expr=filter_expr
         )
 
-class Handler(t.Generic[P, T], FlowControl):
+class Handler(t.Generic[P, T]):
     def __init__(
         self,
         name: str,
         func: t.Callable[P, T],
         event_type: EventType,
-        filter_expr: t.Optional[BaseFilter],
-        unregister_callback: t.Callable[['Handler'], t.Any] = None
+        filter_expr: t.Optional[BaseFilter] = None,
+        unregister_callback: t.Callable[['Handler'], bool] = None
     ):
 
+        self.name = name
         self.func = func
         self.event_type = event_type
         self.filter_expr = filter_expr
         self._unregister_callback = unregister_callback
-
-        super().__init__(name=name)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         return self.func(*args, **kwargs)
 
     def unregister(self):
         if self._unregister_callback is None:
-            return False
+            raise RuntimeError(
+                f'Handler {self.name!r} cannot be unregistered: '
+                'no unregister callback is set.'
+            )
 
         status = self._unregister_callback(self)
         if status:
@@ -538,43 +538,28 @@ class Handler(t.Generic[P, T], FlowControl):
                 'Successfully unregistered handler %r.',
                 self.name
             )
-        
-        return bool(status)
 
-    async def execute(self, value):
+        return status
+
+    async def execute(self, value) -> t.Optional[T]:
         logger.debug('Running handler %r.', self.name)
 
-        if self.is_stopped:
-            logger.debug(
-                'Handler %r is stopped: skipping...',
-                self.name
-            )
+        if self.filter_expr:
+            try:
+                result = await run_filter(self.filter_expr, value)
 
-        else:
-            if self.filter_expr:
-                try:
-                    result = await run_filter(self.filter_expr, value)
-
-                except Exception:
-                    logger.exception(
-                        'Error while evaluating filter for handler %r.',
-                        self.name
-                    )
-                    return
-
-                if not result:
-                    logger.debug(
-                        'Filter did not match for handler %r, skipping...',
-                        self.name
-                    )
-                    return
-
-            if self.is_paused:
-                logger.debug(
-                    'Handler %r is paused, waiting to resume',
+            except Exception:
+                logger.exception(
+                    'Error while run filter for handler %r.',
                     self.name
                 )
+                return
 
-                await self._lock_event.wait()
+            if not result:
+                logger.debug(
+                    'Filter did not match for handler %r, skipping...',
+                    self.name
+                )
+                return
 
-            return await maybe_await(self.func(value))
+        return await maybe_await(self.func(value))

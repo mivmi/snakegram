@@ -73,13 +73,14 @@ class BaseSqlite:
     
     @with_cursor
     def _on_connect(self, cursor: sqlite3.Cursor):
-        self._create(cursor)
         try:
             cursor.execute('SELECT `version`, `lib_version` FROM `version` LIMIT 1;')
             version, lib_version = cursor.fetchone()
 
         except TypeError as exc:
-            raise ValueError(f'Failed to load session: {exc}') from exc
+            raise ValueError(
+                f'Failed to load session: {exc}'
+            ) from exc
 
         except sqlite3.OperationalError:
             version = None

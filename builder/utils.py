@@ -24,7 +24,8 @@ class Module:
             os.makedirs(base)
         
         names = set()
-        result = PyFormatter(f'"""{constants.WARN_TEXT}"""\n\n')        
+        result = PyFormatter()        
+        result.comment(constants.WARN_TEXT + '\n')
         type_checking_body = PyFormatter(level=1)
 
         def add_variables(current: int):

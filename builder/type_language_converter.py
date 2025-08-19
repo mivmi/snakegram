@@ -11,7 +11,7 @@ import typing as t
 from zlib import crc32
 
 from . import utils, constants
-from parser import BaseParser, lexer, grammar
+from .parser import BaseParser, lexer, grammar
 
 
 class TypeLexer(lexer.BaseLexer):
@@ -285,7 +285,6 @@ class TypeParser(BaseParser):
 
         return root
 
-
 def is_bool(data: dict) -> bool:
     if data['_'] == 'flagged_type':
         return is_bool(data['type'])
@@ -373,7 +372,6 @@ def get_file_path(
         if base else 
         py_file
     )   
-
 
 def get_family_name(name: str, namespace: t.Optional[str] = None):
     result = utils.title_case(
@@ -475,7 +473,6 @@ def get_type_annotation(
 
         module.add_import('Optional', module='typing')
         return f'Optional[{sub_type}]'
-
 
 def is_random_id(parameter: dict):
     return utils.safe_name(parameter['name']) == 'random_id'
@@ -906,14 +903,6 @@ def create_from_reader_function(tree: dict, module: 'utils.Module'):
     )
 
     def handel_type(type_data: dict):
-        """Handle the type data and generate corresponding code for different types.
-
-        Args:
-            type_data (dict): The type data containing information about the type.
-
-        Returns:
-            str: Generated code for the type data.
-        """
         args = []
         if type_data['name'] != 'Object':
             class_name = get_family_name(
@@ -942,14 +931,6 @@ def create_from_reader_function(tree: dict, module: 'utils.Module'):
         return result.content.strip()
 
     def handel_vector(type_data: dict):
-        """Handle vector-type data and generate corresponding code.
-
-        Args:
-            type_data (dict): The type data for vector-type elements.
-
-        Returns:
-            str: Generated code for vector-type data.
-        """
         args = []
         if type_data['type']['_'] == 'base_type':
             callback = 'reader.' + type_data['type']['name']

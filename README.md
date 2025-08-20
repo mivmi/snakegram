@@ -9,6 +9,13 @@ If you have any questions, ideas, or run into any issues, feel free to join the 
 
 ---
 
+## You can install the latest development version directly from GitHub:
+
+```bash
+pip install git+https://github.com/mivmi/snakegram.git@dev
+```
+
+
 ## Example
 
 ```python
@@ -22,14 +29,11 @@ client = Telegram(
 
 @client.on_update(
     filters.new_message
-    & (filters.proxy.message.message.lower() == 'ping')
+    & 
+    filters.proxy.message.message.lower() == 'ping'
 )
 async def ping_handler(update):
-    await client.send_text(
-        update.message.peer_id,
-        '*PONG*',
-        reply_to=update.message
-    )
+    await client.send_message(update.message.peer_id, '*PONG*')
 
 client.start()
 client.wait_until_disconnected()

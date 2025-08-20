@@ -909,7 +909,7 @@ class MediaConnection(Connection):
         dc_id = None,
         is_cdn = False,
         use_ipv6 = False,
-        on_event = None,
+        event_callback = None,
         public_key_getter = None,
         init_connection_callback = None
     ):
@@ -921,7 +921,7 @@ class MediaConnection(Connection):
             is_cdn=is_cdn,
             is_media=True,
             use_ipv6=use_ipv6,
-            on_event=on_event,
+            event_callback=event_callback,
             public_key_getter=public_key_getter,
             init_connection_callback=init_connection_callback
         )

@@ -205,35 +205,45 @@ class Common:
             )
 
             if (
-                input_peer
-                and event.is_update
-                and not full and not force_request
+                event.is_update
+                and (
+                    input_peer is None
+                    or (not full and not force_request)
+                )
             ):
-                peer_id = helpers.get_peer_id(input_peer, raise_error=False)
+                peer_id = helpers.get_peer_id(
+                    input_peer or target,
+                    raise_error=False
+                )
 
-                if is_user:
-                    value = next(
-                        (
-                            u
-                            for u in getattr(event.update, '_users', [])
-                            if peer_id == helpers.get_peer_id(u, raise_error=False)
-                        ),
-                        None
-                    )
-                else:
-                    value = next(
-                        (
-                            c
-                            for c in getattr(event.update, '_chats', [])
-                            if peer_id == helpers.get_peer_id(c, raise_error=False)
-                        ),
-                        None
-                    )
+                if peer_id is not None:
+                    if is_user:
+                        value = next(
+                            (
+                                u
+                                for u in getattr(event.update, '_users', [])
+                                if peer_id == helpers.get_peer_id(u, raise_error=False)
+                            ),
+                            None
+                        )
+                    else:
+                        value = next(
+                            (
+                                c
+                                for c in getattr(event.update, '_chats', [])
+                                if peer_id == helpers.get_peer_id(c, raise_error=False)
+                            ),
+                            None
+                        )
 
-                if value is not None:
-                    results[idx] = value
-                    continue
+                    if value is not None:
+                        if not full and not force_request:
+                            results[idx] = value
+                            continue
 
+                        if input_peer is None:
+                            input_peer = helpers.cast_to_input_peer(value)
+                    
             if is_user:
                 item = helpers.cast_to_input_user(input_peer)
                 entity_type = 'user'

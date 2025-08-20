@@ -24,6 +24,193 @@ PARSE_MODE = env('PARSE_MODE', 'md', str)
 
 
 class Messages:
+    async def send_text(
+        self: 'Telegram',
+        target: alias.LikeEntity,
+        message: t.Union[str, types.Message],
+        *,
+        reply_to: t.Optional[TypeReply] = None,
+        send_as: alias.LikeEntity = None,
+        schedule_date: alias.LikeTime = None,
+
+        silent: bool = False,
+        noforwards: bool = False,
+        background: bool = False,
+        no_webpage: bool = False,
+        clear_draft: bool = False,
+        invert_media: bool = False,
+        allow_paid_floodskip: bool = False,
+        update_stickersets_order: bool = False,
+
+        effect: t.Optional[int] = None,
+        entities: t.List[types.TypeMessageEntity] = None,
+        parse_mode: alias.ParseMode = None,
+        quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None        
+    ) -> types.TypeUpdate:
+        """
+        Sends a text message to the specified `user`, `chat`, or `channel`.
+        
+        Args:
+            target (`LikeEntity`):
+                The `user` or `chat` to whom the message will be sent.
+            
+            message (`str` | `types.Message`):
+                The text to send, or `types.Message` object to reuse its content.
+
+            reply_to (`TypeReply`, optional):
+                The message or story to reply to.
+                If an integer is provided, it will be treated as `msg_id`.
+                If `types.Message` is given, the reply will target that message directly.
+                Also, you can pass an instance of `types.InputReplyTo` directly.
+
+            send_as (`LikeEntity`, optional):
+                The entity to send the message as.
+            
+            schedule_date (`LikeTime`, optional):
+                The date and time when the message should be sent, if scheduling is desired.
+            
+            silent (`bool`, optional):
+                If `True`, the message will be sent silently (no notification).
+            
+            noforwards (`bool`, optional):
+                *Bots only*. Prevents the message from being forwarded or saved by users.
+            
+            background (`bool`, optional):
+                If `True`, sends the message in the background.
+
+            no_webpage (`bool`, optional):
+                If `True`, disables webpage preview.
+            
+            clear_draft (`bool`, optional):
+                If `True`, clears existing draft message in the target chat.
+            
+            invert_media (`bool`, optional):
+                If `True`, places the link preview above the message instead of below.
+            
+            allow_paid_floodskip (`bool`, optional):
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                Only successfully delivered messages are charged.
+
+            update_stickersets_order (`bool`, optional):
+                If `True`, moves the used stickerset to the top.
+            
+            effect (`int`, optional):
+                Specifies a message effect to use for the message.
+                To get the list of available effects, use the function `messages.GetAvailableEffects`.
+
+            entities (`List[MessageEntity]`, optional):
+                List of message formatting `entities`.
+                If provided, parsing will be skipped and the message will be formatted directly using this list.
+            
+            parse_mode (`str`, optional):
+                Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
+                Defaults to the client's global parse mode.
+            
+            quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional)
+                Adds the message to a quick reply shortcut by `id`, `name`, or input object, instead of sending it normally.
+            
+            reply_markup (`ReplyMarkup`, optional):
+                *Bot only*. Markup for attaching reply buttons (`inline`, `keyboard`, etc.) to the message.
+                
+        Example:
+        ```python
+            await client.send_text('me', 'Hello **World**!')
+
+            # Replying to a message
+            upd = await client.send_text('me', 'Original message')
+            await client.send_text('me', 'This is a reply', reply_to=upd)
+
+            # scheduling a message to be sent in 5 minutes
+            await client.send_text(
+                chat,
+                'This is a scheduled message',
+                schedule_date=timedelta(minutes=5)
+            )
+
+            # Sending with inline buttons
+            await client.send_text(
+                chat,
+                'Click a button:',
+                reply_markup=types.ReplyInlineMarkup(
+                    [
+                        [types.KeyboardButtonCallback('Button 1', data=b'btn1')],
+                        [types.KeyboardButtonUrl('Open site', url='https://example.com')]
+                    ]
+                )
+            )
+        ```
+        """
+
+        if quick_reply is not None:
+            if isinstance(quick_reply, str):
+                quick_reply = types.InputQuickReplyShortcut(
+                    shortcut=quick_reply
+                )
+
+            elif isinstance(quick_reply, int):
+                quick_reply = types.InputQuickReplyShortcutId(
+                    shortcut_id=quick_reply
+                )
+
+        if isinstance(message, types.Message):
+            if entities is None:
+                entities = message.entities
+
+            effect = effect or message.effect
+            reply_markup = (
+                message.reply_markup
+                if reply_markup is None else
+                reply_markup
+            )
+            message_text = message.message
+        
+        else:
+            message_text = message
+
+        if entities is None:
+            message_text, entities = self.parse_message_text(
+                message_text,
+                parse_mode=parse_mode or PARSE_MODE
+            )
+
+        input_peer = await self.get_input_peer(target)
+        if send_as is not None:
+            send_as = await self.get_input_peer(send_as)
+        
+        if (
+            reply_to
+            and not isinstance(reply_to, types.TypeInputReplyTo)
+        ):
+            reply_to = await self.get_input_reply(msg=reply_to)
+
+        request = functions.messages.SendMessage(
+            peer=input_peer,
+            message=message_text,
+            no_webpage=no_webpage,
+            silent=silent,
+            background=background,
+            clear_draft=clear_draft,
+            noforwards=noforwards,
+            update_stickersets_order=update_stickersets_order,
+            invert_media=invert_media,
+            allow_paid_floodskip=allow_paid_floodskip,
+            reply_to=reply_to,
+            reply_markup=reply_markup,
+            schedule_date=(
+                None
+                if schedule_date is None else
+                to_timestamp(schedule_date)
+            ),
+            entities=entities,
+            send_as=send_as,
+            effect=effect,
+            quick_reply_shortcut=quick_reply
+        )
+        return await self._resolve_response(request)
+
     async def send_media(
         self: 'Telegram',
         target: alias.LikeEntity,
@@ -253,11 +440,12 @@ class Messages:
         )
         return await self._resolve_response(request)
 
-    async def send_text(
+    async def send_message(
         self: 'Telegram',
         target: alias.LikeEntity,
-        message: t.Union[str, types.Message],
+        message: t.Union[str, types.Message] = '',
         *,
+        media: LikeInputFile = None,
         reply_to: t.Optional[TypeReply] = None,
         send_as: alias.LikeEntity = None,
         schedule_date: alias.LikeTime = None,
@@ -265,27 +453,44 @@ class Messages:
         silent: bool = False,
         noforwards: bool = False,
         background: bool = False,
-        no_webpage: bool = False,
         clear_draft: bool = False,
         invert_media: bool = False,
         allow_paid_floodskip: bool = False,
         update_stickersets_order: bool = False,
 
+        no_webpage: bool = False,
+        spoiler: bool = False,
+        force_file: bool = False,
+        nosound_video: bool = False,
+        ttl: t.Optional[alias.LikeTime] = None,
+        thumb: t.Optional[LikeInputFile] = None,
+        stickers: t.Optional[t.List[types.TypeInputDocument]] = None,
+        attributes: t.List[types.TypeDocumentAttribute] = None,
+
         effect: t.Optional[int] = None,
         entities: t.List[types.TypeMessageEntity] = None,
         parse_mode: alias.ParseMode = None,
+
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
-        reply_markup: t.Optional[types.TypeReplyMarkup] = None        
-    ) -> types.TypeUpdate:
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None
+    ):
         """
-        Sends a text message to the specified `user`, `chat`, or `channel`.
-        
+        Sends a message to the specified `user`, `chat`, or `channel`.
+
+
         Args:
             target (`LikeEntity`):
                 The `user` or `chat` to whom the message will be sent.
-            
-            message (`str` | `types.Message`):
-                The text to send, or `types.Message` object to reuse its content.
+
+            message (`str` | `types.Message`, optional):
+                The text of the message, or a `types.Message` object
+                to reuse its content and entities.  
+                When `media` is provided, this becomes the caption.
+
+            media (`LikeInputFile`, optional):
+                Attached media to send.
+                If `None` the method will use media from `message` if available.
+                otherwise, the message is sent as text.
 
             reply_to (`TypeReply`, optional):
                 The message or story to reply to.
@@ -295,28 +500,25 @@ class Messages:
 
             send_as (`LikeEntity`, optional):
                 The entity to send the message as.
-            
+
             schedule_date (`LikeTime`, optional):
                 The date and time when the message should be sent, if scheduling is desired.
-            
+
             silent (`bool`, optional):
                 If `True`, the message will be sent silently (no notification).
-            
+
             noforwards (`bool`, optional):
                 *Bots only*. Prevents the message from being forwarded or saved by users.
-            
+
             background (`bool`, optional):
                 If `True`, sends the message in the background.
 
-            no_webpage (`bool`, optional):
-                If `True`, disables webpage preview.
-            
             clear_draft (`bool`, optional):
                 If `True`, clears existing draft message in the target chat.
-            
+
             invert_media (`bool`, optional):
-                If `True`, places the link preview above the message instead of below.
-            
+                If `True`, places the media above the message instead of below.
+
             allow_paid_floodskip (`bool`, optional):
                 *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
                 Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
@@ -325,121 +527,136 @@ class Messages:
 
             update_stickersets_order (`bool`, optional):
                 If `True`, moves the used stickerset to the top.
-            
+
+            no_webpage (`bool`, optional):
+                *Text only*. If `True`, disables webpage preview.
+
+            spoiler (`bool`, optional):
+                *Media only*. If `True`, marks the media as a spoiler (blurred until tapped).
+
+            force_file (`bool`, optional):
+                *Media only*. If `True`, sends the media as a file.
+
+            nosound_video (`bool`, optional):
+                *Media only*. If `True`, specifies that the attached document is a video file
+                with no audio tracks (for example, a GIF animation, even if encoded as MPEG4).
+
+            ttl (`LikeTime`, optional):
+                *Media only*. self destruct timer for the media, in seconds or as date/time..
+
+            thumb (`LikeInputFile`, optional):
+                *Media only*. Optional thumbnail for the media.
+
+            stickers (`List[InputDocument]`, optional):
+                *Media only*. Stickers to attach to the media.
+
+            attributes (`List[DocumentAttribute]`, optional):
+                *Media only*. Attributes that specify the type of the document (`video`, `audio`, `voice`, `sticker`, etc.).
+
             effect (`int`, optional):
                 Specifies a message effect to use for the message.
                 To get the list of available effects, use the function `messages.GetAvailableEffects`.
 
             entities (`List[MessageEntity]`, optional):
-                List of message formatting `entities`.
-                If provided, parsing will be skipped and the message will be formatted directly using this list.
-            
+                List of message formatting `entities` for the caption.
+                If provided, parsing will be skipped and the caption will be formatted directly.
+
             parse_mode (`str`, optional):
-                Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
+                Specifies the parsing mode for the text/caption: `'md'`, `'markdown'`, or `'html'`.
                 Defaults to the client's global parse mode.
-            
-            quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional)
-                Adds the message to a quick reply shortcut by `id`, `name`, or input object, instead of sending it normally.
-            
+
+            quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional):
+                Adds the message to a quick reply shortcut by `id`, `name`, or input object.
+
             reply_markup (`ReplyMarkup`, optional):
                 *Bot only*. Markup for attaching reply buttons (`inline`, `keyboard`, etc.) to the message.
-                
+
         Example:
         ```python
-            await client.send_text('me', 'Hello **World**!')
 
-            # Replying to a message
-            upd = await client.send_text('me', 'Original message')
-            await client.send_text('me', 'This is a reply', reply_to=upd)
+        # send text 
+        await client.send_message('me', 'Hello world!')
 
-            # scheduling a message to be sent in 5 minutes
-            await client.send_text(
-                chat,
-                'This is a scheduled message',
-                schedule_date=timedelta(minutes=5)
+        # send photo with caption
+        await client.send_message('me', 'Look at this!', media='photo.jpg')
+
+        # reply to a message
+        upd = await client.send_message('me', 'First')
+        await client.send_message('me', 'Replying', reply_to=upd)
+
+        # send media with inline buttons
+        await client.send_message(
+            chat,
+            'Click this out:',
+            media='file.pdf',
+            reply_markup=types.ReplyInlineMarkup(
+                [
+                    [types.KeyboardButtonUrl('Open site', url='https://example.com')]
+                ]
             )
-
-            # Sending with inline buttons
-            await client.send_text(
-                chat,
-                'Click a button:',
-                reply_markup=types.ReplyInlineMarkup(
-                    [
-                        [types.KeyboardButtonCallback('Button 1', data=b'btn1')],
-                        [types.KeyboardButtonUrl('Open site', url='https://example.com')]
-                    ]
-                )
-            )
+        )
         ```
         """
 
-        if quick_reply is not None:
-            if isinstance(quick_reply, str):
-                quick_reply = types.InputQuickReplyShortcut(
-                    shortcut=quick_reply
-                )
+        if media is None: 
+            if isinstance(message, types.Message):
+                media = message.media
 
-            elif isinstance(quick_reply, int):
-                quick_reply = types.InputQuickReplyShortcutId(
-                    shortcut_id=quick_reply
-                )
+        if isinstance(media, types.MessageMediaWebPage):
+            media = None
+            no_webpage = False
 
-        if isinstance(message, types.Message):
-            if entities is None:
-                entities = message.entities
-
-            effect = effect or message.effect
-            reply_markup = (
-                message.reply_markup
-                if reply_markup is None else
-                reply_markup
+        if media is not None:
+            return await self.send_media(
+                target,
+                media,
+                message=message,
+                reply_to=reply_to,
+                send_as=send_as,
+                schedule_date=schedule_date,
+                silent=silent,
+                spoiler=spoiler,
+                force_file=force_file,
+                noforwards=noforwards,
+                background=background,
+                clear_draft=clear_draft,
+                invert_media=invert_media,
+                nosound_video=nosound_video,
+                allow_paid_floodskip=allow_paid_floodskip,
+                update_stickersets_order=update_stickersets_order,
+                ttl=ttl,
+                effect=effect,
+                thumb=thumb,
+                entities=entities,
+                stickers=stickers,
+                attributes=attributes,
+                parse_mode=parse_mode,
+                quick_reply=quick_reply,
+                reply_markup=reply_markup
             )
-            message_text = message.message
-        
         else:
-            message_text = message
-
-        if entities is None:
-            message_text, entities = self.parse_message_text(
-                message_text,
-                parse_mode=parse_mode or PARSE_MODE
+            return await self.send_text(
+                target,
+                message,
+                reply_to=reply_to,
+                send_as=send_as,
+                schedule_date=schedule_date,
+                silent=silent,
+                noforwards=noforwards,
+                background=background,
+                no_webpage=no_webpage,
+                clear_draft=clear_draft,
+                invert_media=invert_media,
+                allow_paid_floodskip=allow_paid_floodskip,
+                update_stickersets_order=update_stickersets_order,
+                effect=effect,
+                entities=entities,
+                parse_mode=parse_mode,
+                quick_reply=quick_reply,
+                reply_markup=reply_markup
             )
 
-        input_peer = await self.get_input_peer(target)
-        if send_as is not None:
-            send_as = await self.get_input_peer(send_as)
-        
-        if (
-            reply_to
-            and not isinstance(reply_to, types.TypeInputReplyTo)
-        ):
-            reply_to = await self.get_input_reply(msg=reply_to)
-
-        request = functions.messages.SendMessage(
-            peer=input_peer,
-            message=message_text,
-            no_webpage=no_webpage,
-            silent=silent,
-            background=background,
-            clear_draft=clear_draft,
-            noforwards=noforwards,
-            update_stickersets_order=update_stickersets_order,
-            invert_media=invert_media,
-            allow_paid_floodskip=allow_paid_floodskip,
-            reply_to=reply_to,
-            reply_markup=reply_markup,
-            schedule_date=(
-                None
-                if schedule_date is None else
-                to_timestamp(schedule_date)
-            ),
-            entities=entities,
-            send_as=send_as,
-            effect=effect,
-            quick_reply_shortcut=quick_reply
-        )
-        return await self._resolve_response(request)
-
+    
     @staticmethod
     def parse_message_text(
         message: str,

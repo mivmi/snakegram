@@ -6,11 +6,13 @@ import typing as t
 import typing_extensions as te
 
 from .methods import Methods
-from .handlers import Router, Handler
+from .handlers import Router, Handler, MainRouter
 from .internal import CacheEntities
+from ._system import system_routers
+
 from .. import about, errors, helpers
 from ..enums import EventType
-from ..models import _local_event, EventContext
+from ..models import UpdateTracker
 
 from ..tl import LAYER, types, functions
 from ..crypto import get_public_key, add_public_key
@@ -39,34 +41,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_TRANSPORT = TcpTransport(codec=AbridgedCodec())
 DEFAULT_SESSION_CLASS = SqliteSession
 DEFAULT_PFS_SESSION_CLASS = MemoryPfsSession
-
-
-
-class MainRouter(Router):
-    def __init__(self, client: 'Telegram', routers: t.List[Router]):
-        super().__init__('__main__')
-
-        for router in routers:
-            self.add_router(router)
-
-        self.client = client
-
-    async def __call__(self, type, event, request: 'Request' = None):
-        _local_event._ctx.set(
-            EventContext(
-                self.client,
-                type,
-                event,
-                request=request
-            )
-        )
-
-        try:
-            await super().__call__(type, event)
-
-        except errors.StopPropagation:
-            pass
-
 
 
 class Telegram(Methods):
@@ -136,7 +110,8 @@ class Telegram(Methods):
         self.params = params or {}
         
         #
-        self._main_router = MainRouter(self, routers)
+        self._main_router = MainRouter(self, system_routers)
+        self._main_router.add_router(*routers)
 
         self.session = session
         self.connection = Connection(
@@ -156,7 +131,9 @@ class Telegram(Methods):
         self._update_states = {}
         self._channel_polling = set()
 
+        #
         self._entities = CacheEntities(session)
+        self._update_tracker = UpdateTracker()
 
         # _media_connections[(dc_id, is_cdn)]
         self._media_connections: t.Dict[t.Tuple[int, bool], MediaConnection] = {}
@@ -328,19 +305,8 @@ class Telegram(Methods):
 
         Args:
             router (`Router`): The router to add.
-
         """
-        if isinstance(router, MainRouter):
-            if self is router.client:
-                raise RuntimeError(
-                    'Cannot add a `MainRouter` to its own client'
-                )
-
-            for sub in list(router.subrouters):
-                self.add_router(sub)
-        
-        else:
-            self._main_router.add_router(router)
+        self._main_router.add_router(router)
 
     def remove_router(self, router: Router):
         """

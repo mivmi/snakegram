@@ -573,7 +573,9 @@ class Connection:
         # route message to handler if available
         dispatcher = self._dispatcher_mapping.get(message.body._group_id)
         if dispatcher is not None:
-            await dispatcher(self, message.body)
+            result = dispatcher(self, message.body)
+            if iscoroutine(result):
+                await result
 
         else:
             logger.warning(
@@ -667,7 +669,7 @@ class Connection:
         else:
             logger.info('pong for unknown ping_id: %d', message.ping_id)
     
-    async def _msgs_ack_handler(self, message: mtproto.types.TypeMsgsAck):
+    def _msgs_ack_handler(self, message: mtproto.types.TypeMsgsAck):
         logger.info('Received acks for msg_ids: %s', message.msg_ids)
 
         for msg_id in message.msg_ids:
@@ -713,6 +715,9 @@ class Connection:
                 )
                 await request.set_result(message.result)
 
+                if isinstance(message.result, types.updates.TypeUpdates):
+                    self._new_update_handler(message.result)
+
         except Exception as exc:
             logger.exception(
                 'Error while processing msg_id %d',
@@ -720,12 +725,10 @@ class Connection:
             )
             await request.set_exception(exc)
 
-    async def _new_update_handler(self, message: types.updates.TypeUpdates):
+    def _new_update_handler(self, message: types.updates.TypeUpdates):
         if not self.is_media:
             if callable(self._updates_callback):
-                coro = self._updates_callback(message)
-                if iscoroutine(coro):
-                    asyncio.create_task(coro)
+                return asyncio.create_task(self._updates_callback(message))
 
             else:
                 logger.warning('no callback set for updates: %r', message)
@@ -788,7 +791,7 @@ class Connection:
                 'to trigger "updates.GetDifference" for full sync'
             )
             await self.state.wait_for_init(TIMEOUT)
-            await self._new_update_handler(types.updates.UpdatesTooLong())
+            self._new_update_handler(types.updates.UpdatesTooLong())
 
     async def _bad_msg_notification_handler(self, message: mtproto.types.TypeBadMsgNotification):
         logger.debug(

@@ -1,3 +1,4 @@
+import asyncio
 import typing as t
 from ..internal import Uploader
 from ... import alias, enums, helpers
@@ -7,7 +8,6 @@ from ...gadgets.parser import parse_markdown
 
 if t.TYPE_CHECKING:
     from ..telegram import Telegram
-    from ...gadgets.tlobject import TLRequest
 
 T = t.TypeVar('T')
 
@@ -209,7 +209,8 @@ class Messages:
             effect=effect,
             quick_reply_shortcut=quick_reply
         )
-        return await self._resolve_response(request)
+        
+        return await self._invoke_wait_update(request)
 
     async def send_media(
         self: 'Telegram',
@@ -438,7 +439,7 @@ class Messages:
             effect=effect,
             quick_reply_shortcut=quick_reply
         )
-        return await self._resolve_response(request)
+        return await self._invoke_wait_update(request)
 
     async def send_message(
         self: 'Telegram',
@@ -799,100 +800,6 @@ class Messages:
 
         return text, entities
 
-    # privates
-    async def _resolve_response(self: 'Telegram', request: 'TLRequest[T]') -> types.TypeUpdate:
-        result = await self(request)
-
-        if isinstance(
-            result,
-            types.updates.UpdateShortSentMessage
-        ):
-            peer_id = helpers.cast_to_peer(request.peer)
-            
-            if request.send_as:
-                from_id = helpers.cast_to_peer(request.send_as)
-            
-            else:
-                me = await self.get_input_peer('me')
-                from_id = helpers.cast_to_peer(me, raise_error=False)
-
-            message = types.Message(
-                id=result.id,
-                peer_id=helpers.cast_to_peer(request.peer),
-                date=result.date,
-                message=request.message,
-                out=result.out,
-                media=result.media,
-                entities=result.entities,
-                reply_markup=request.reply_markup,
-                ttl_period=result.ttl_period,
-                silent=request.silent,
-                noforwards=request.noforwards,
-                invert_media=request.invert_media,
-                effect=request.effect,
-                from_id=from_id
-            )
-
-            if not isinstance(peer_id, types.PeerChannel):
-                return types.UpdateNewMessage(
-                    message,
-                    pts=result.pts,
-                    pts_count=result.pts_count
-                )
-
-            else:
-                return types.UpdateNewChannelMessage(
-                    message,
-                    pts=result.pts,
-                    pts_count=result.pts_count
-                )
-
-        # updates
-        if isinstance(
-            result,
-            (
-                types.updates.Updates,
-                types.updates.UpdatesCombined
-            )
-        ):
-            updates = result.updates
-
-        elif isinstance(result, types.TypeUpdate):
-            updates = [result]
-
-        else:
-            return result
-
-        update_ids = {}
-        pending_ids = {}
-        for update in updates:
-            if isinstance(update, types.UpdateMessageID):
-                pending_ids[update.random_id] = update.id
-                continue
-            
-            if isinstance(
-                update,
-                (
-                    
-                    types.UpdateNewMessage,
-                    types.UpdateEditMessage,
-                    types.UpdateNewChannelMessage,
-                    types.UpdateEditChannelMessage,
-                    types.UpdateNewScheduledMessage
-                )
-            ):
-                update_ids[update.message.id] = update
-
-        random_id = getattr(request, 'random_id', None)
-        if random_id is not None:
-            message_id = pending_ids.get(random_id)
-
-        else:
-            message_id = getattr(request, 'id', None)
-
-        if message_id is not None:
-            return update_ids.get(message_id)
-
     async def get_input_media(
         self: 'Telegram',
         media: LikeInputMedia,
@@ -1019,3 +926,24 @@ class Messages:
             )
 
         raise ValueError("You must provide either 'story_id' or 'msg'.")
+
+    # privates
+    async def _invoke_wait_update(
+        self: 'Telegram',
+        request,
+        timeout: t.Optional[float] = None
+    ) -> types.TypeUpdate:
+        future = self._update_tracker.add_random(
+            request.random_id,
+            peer_id=helpers.get_peer_id(request.peer)
+        )
+
+        try:
+            result = await self(request)
+            return await asyncio.wait_for(future, timeout)
+
+        except asyncio.TimeoutError:
+            return result
+
+        finally:
+            self._update_tracker.pop_random(request.random_id)

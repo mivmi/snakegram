@@ -1,3 +1,4 @@
+import asyncio
 import typing as t
 
 from . import enums, errors
@@ -292,7 +293,6 @@ class EventContext:
     def is_request(self):
         return self.type is enums.EventType.Request
 
-
 class MessageEntity:
     def __repr__(self):
         return self.to_string()
@@ -330,5 +330,43 @@ class MessageEntity:
         self.user_id = user_id
         self.lang_code = lang_code
         self.custom_emoji_id = custom_emoji_id
+
+class UpdateTracker:
+    def __init__(self):
+        self._random = {}
+        self._pending = {}
+
+    def add_random(
+        self,
+        id: int,
+        peer_id: int,
+        *,
+        future: asyncio.Future = None
+    ) -> asyncio.Future:
+        if future is None:
+            future = asyncio.Future()
+        self._random[id] = (peer_id, future)
+
+        return future
+
+    def pop_random(self, id: int) -> t.Optional[t.Tuple[int, asyncio.Future]]:
+        return self._random.pop(id, None)
+
+    def add_message(
+        self,
+        id: int,
+        peer_id: int,
+        *,
+        future: asyncio.Future = None
+    ) -> asyncio.Future:
+        if future is None:
+            future = asyncio.Future()
+
+        self._pending[(id, peer_id)] = future
+        return future
+
+    def pop_message(self, id: int, peer_id: int) -> t.Optional[asyncio.Future]:
+        return self._pending.pop((id, peer_id), None)
+
 
 _local_event: EventContext = Local(default=EventContext())

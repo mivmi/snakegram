@@ -107,10 +107,14 @@ class Updates:
             
             elif isinstance(update, (
                     types.updates.UpdateShortMessage,
-                    types.updates.UpdateShortChatMessage
+                    types.updates.UpdateShortChatMessage,
+                    types.updates.UpdateShortSentMessage
                 )
             ):
                 await self._handle_short_update(update)
+            
+            else:
+                await self._handle_single_update(update)
 
         except Exception:
             logger.exception(f'Failed to process update due to unexpected error: {update}')
@@ -128,7 +132,6 @@ class Updates:
             'Processing pts update: '
             f'pts={pts}, pts_count={pts_count}, local_pts={local_pts}'
         )
-        
 
         if local_pts == 0 or local_pts + pts_count == pts:
 
@@ -153,7 +156,7 @@ class Updates:
             await update_state.add(update)
 
     async def _handle_qts_update(self: 'Telegram', update):
-        update_state = self._get_update_state(None)
+        update_state = self._get_update_state()
         
         qts = update.qts
         local_qts = update_state.state_info.qts
@@ -186,7 +189,7 @@ class Updates:
             await update_state.add(update)
 
     async def _handle_seq_updates(self: 'Telegram', update):
-        update_state = self._get_update_state(None)
+        update_state = self._get_update_state()
     
         seq = update.seq
         local_seq = update_state.state_info.seq
@@ -222,17 +225,13 @@ class Updates:
 
     async def _handle_short_update(self: 'Telegram', update):
         if isinstance(update, types.updates.UpdateShortMessage):
-            if update.out:
-                if self.session.me:
-                    from_id = self.session.me.id
+            from_id = helpers.cast_to_peer(
+                await self.get_input_peer(
+                    'me' if update.out else update.user_id
+                ),
+                raise_error=False
+            )
 
-                else:
-                    me = await self.get_me()
-                    from_id = me.id
-
-            else:
-                from_id = update.user_id
-    
             transformed = types.UpdateNewMessage(
                 message=types.Message(
                     id=update.id,
@@ -242,8 +241,7 @@ class Updates:
                     out=update.out,
                     mentioned=update.mentioned,
                     media_unread=update.media_unread,
-                    silent=update.silent,
-                        
+                    silent=update.silent,   
                     date=update.date,
                     fwd_from=update.fwd_from,
                     via_bot_id=update.via_bot_id,
@@ -277,6 +275,11 @@ class Updates:
                 pts=update.pts,
                 pts_count=update.pts_count
             )
+        
+        elif isinstance(update, types.updates.UpdateShortSentMessage):
+            update_state = self._get_update_state()
+            await self._fetch_difference(update_state)
+            return
 
         else:
             logger.warning(f'Unexpected short update type: {update}')
@@ -303,7 +306,7 @@ class Updates:
 
         try:
             state = await self(functions.updates.GetState())
-            update_state = self._get_update_state(None)
+            update_state = self._get_update_state()
 
             if update_state.state_info.pts > 0 and not self.drop_update:
                 await self._fetch_difference(update_state)
@@ -385,7 +388,7 @@ class Updates:
                             qts=qts
                         )
                         updates.append(new_message)
-                        
+                    
                     update = types.updates.Updates(
                         updates,
                         result.users,
@@ -530,7 +533,10 @@ class Updates:
                 date=state_info.date
             )
 
-    def _get_update_state(self: 'Telegram', channel_id: t.Optional[int]) -> UpdateState:
+    def _get_update_state(
+        self: 'Telegram',
+        channel_id: t.Optional[int] = None
+    ) -> UpdateState:
 
         state_id = models.StateId(channel_id)
         update_state = self._update_states.get(state_id)

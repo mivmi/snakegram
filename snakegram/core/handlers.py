@@ -7,10 +7,12 @@ import typing_extensions as te
 
 from .. import errors
 from ..enums import EventType
+from ..models import _local_event, EventContext
 from ..gadgets.utils import decorator, maybe_await
 from ..gadgets.filter import BaseFilter, run_filter
 
 if t.TYPE_CHECKING:
+    from .telegram import Telegram
     from ..tl.types import TypeUpdate # type: ignore
     from ..network.utils import Request
     from ..gadgets.tlobject import TLObject
@@ -19,6 +21,8 @@ T = t.TypeVar('T')
 P = te.ParamSpec('P')
 
 logger = logging.getLogger(__name__)
+
+
 
 class Router:
     """
@@ -295,7 +299,7 @@ class Router:
         except (KeyError, AttributeError):
             raise ValueError(f'Invalid handler type: {event_type!r}')
 
-    def add_router(self, router: Router):
+    def add_router(self, *routers: Router):
         """
         Add a subrouter to this router.
 
@@ -303,15 +307,19 @@ class Router:
             router (`Router`): The router to add as a subrouter.
 
         """
-        if router in self._subrouters:
-            raise ValueError(
-                f'Subrouter {router.name!r} is already added in {self.name!r}'
-            )
+        for router in routers:
+            if router in self._subrouters:
+                raise ValueError(
+                    f'Subrouter {router.name!r} is already added in {self.name!r}'
+                )
 
-        self._subrouters.append(router)
-        logger.debug('Added subrouter %r into %r.', router.name, self.name)
+            if isinstance(router, MainRouter):
+                raise ValueError('Cannot add a MainRouter as a subrouter.')
 
-    def remove_router(self, router: Router):
+            self._subrouters.append(router)
+            logger.debug('Added subrouter %r into %r.', router.name, self.name)
+
+    def remove_router(self, *routers: Router):
         """
         Remove a subrouter from this router.
 
@@ -319,17 +327,24 @@ class Router:
             router (Router): The router to remove.
 
         """
-        try:
-            self._subrouters.remove(router)
-            logger.debug(
-                'Removed subrouter %r from %r',
-                router.name, self.name
-            )
+        for router in routers:
+            try:
+                if isinstance(router, SystemRouter):
+                    raise RuntimeError(
+                        f'Cannot remove system router {router.name!r}. '
+                        'This router is critical for core system.'
+                    )
 
-        except ValueError:
-            raise ValueError(
-                f'Subrouter {router.name!r} not found in {self.name!r}'
-            )
+                self._subrouters.remove(router)
+                logger.debug(
+                    'Removed subrouter %r from %r',
+                    router.name, self.name
+                )
+
+            except ValueError:
+                raise ValueError(
+                    f'Subrouter {router.name!r} not found in {self.name!r}'
+                )
 
     #
     @decorator
@@ -563,3 +578,30 @@ class Handler(t.Generic[P, T]):
                 return
 
         return await maybe_await(self.func(value))
+
+#
+class MainRouter(Router):
+    def __init__(self, client: 'Telegram', routers: t.List[Router]):
+        super().__init__('__main__')
+
+        self.client = client
+        self.add_router(*routers)
+
+    async def __call__(self, type, event, request: 'Request' = None):
+        _local_event._ctx.set(
+            EventContext(
+                self.client,
+                type,
+                event,
+                request=request
+            )
+        )
+
+        try:
+            await super().__call__(type, event)
+
+        except errors.StopPropagation:
+            pass
+
+class SystemRouter(Router):
+    pass

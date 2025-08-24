@@ -12,7 +12,7 @@ from ._system import system_routers
 
 from .. import about, errors, helpers
 from ..enums import EventType
-from ..models import UpdateTracker
+from ..models import EventExtra, UpdateTracker
 
 from ..tl import LAYER, types, functions
 from ..crypto import get_public_key, add_public_key
@@ -110,6 +110,7 @@ class Telegram(Methods):
         self.params = params or {}
         
         #
+        self._extra = EventExtra()
         self._main_router = MainRouter(self, system_routers)
         self._main_router.add_router(*routers)
 
@@ -148,6 +149,11 @@ class Telegram(Methods):
             *queries,
             ordered=ordered
         )
+
+    #
+    @property
+    def extra(self):
+        return self._extra
 
     # connection
     def is_connected(self):

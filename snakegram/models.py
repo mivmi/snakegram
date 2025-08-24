@@ -1,5 +1,6 @@
 import asyncio
 import typing as t
+import threading
 
 from . import enums, errors
 from .tl import types
@@ -192,6 +193,27 @@ class StateInfo:
                 access_hash=self.entity.access_hash
             )
 
+class EventExtra:
+    def __init__(self):
+        self._data = {}
+        self._lock = threading.Lock()
+
+    def set(self, name, value):
+        with self._lock:
+            self._data[name] = value
+
+    def get(self, name, default=None):
+        with self._lock:
+            return self._data.get(name, default)
+
+    def all(self):
+        with self._lock:
+            return dict(self._data)
+
+    def delete(self, name):
+        with self._lock:
+            self._data.pop(name, None)
+
 class EventContext:
     def __bool__(self):
         return self.client is not None
@@ -259,6 +281,10 @@ class EventContext:
     @property
     def data(self):
         return self._data
+    
+    @property
+    def extra(self):
+        return self.client.extra if self.client else None
 
     @property
     def error(self) -> t.Optional[Exception]:

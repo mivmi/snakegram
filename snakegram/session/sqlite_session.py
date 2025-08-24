@@ -74,7 +74,14 @@ class BaseSqlite:
     @with_cursor
     def _on_connect(self, cursor: sqlite3.Cursor):
         try:
-            cursor.execute('SELECT `version`, `lib_version` FROM `version` LIMIT 1;')
+            cursor.execute(
+                '''
+                SELECT
+                    `version`,
+                    `lib_version`
+                FROM `version` LIMIT 1;
+                '''
+            )
             version, lib_version = cursor.fetchone()
 
         except TypeError as exc:
@@ -99,16 +106,13 @@ class BaseSqlite:
             # update db version
             cursor.execute(
                 '''
-                INSERT INTO `version`
+                INSERT OR REPLACE INTO `version`
                 (
                     `id`,
                     `version`,
                     `lib_version`
                 )
-                VALUES (1, ?, ?)
-                ON CONFLICT(`id`) DO UPDATE SET
-                    `version` = EXCLUDED.version,
-                    `lib_version` = EXCLUDED.lib_version
+                VALUES (1, ?, ?);
                 ''',
                 (VERSION, __version__) 
             )
@@ -168,7 +172,7 @@ class BaseSqlite:
         self._auth_key.set_auth_key(auth_key)
 
         # remove all server salts
-        cursor.execute('DELETE FROM `server-salts` WHERE 1')
+        cursor.execute('DELETE FROM `server-salts` WHERE 1;')
 
     @with_cursor
     def clear(self, cursor: sqlite3.Cursor):
@@ -196,16 +200,13 @@ class BaseSqlite:
 
         cursor.execute(
             '''
-            INSERT INTO `server-salts` 
+            INSERT OR REPLACE INTO `server-salts` 
             (
                 `salt`,
                 `valid_since`,
                 `valid_until`
             )
-            VALUES (?, ?, ?)
-            ON CONFLICT(`salt`) DO UPDATE SET 
-                `valid_since` = EXCLUDED.valid_since,
-                `valid_until` = EXCLUDED.valid_until
+            VALUES (?, ?, ?);
             ''',
             (salt, valid_since, valid_until)
         )
@@ -233,7 +234,7 @@ class BaseSqlite:
 
     @with_cursor
     def get_server_salts(self, cursor: sqlite3.Cursor) -> t.List[t.Tuple[int, int, int]]:
-        cursor.execute('SELECT * FROM `server-salts` WHERE 1')
+        cursor.execute('SELECT * FROM `server-salts` WHERE 1;')
 
         return [
             (salt, valid_since, valid_until)
@@ -323,7 +324,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
                 `auth_key`,
                 `created_at`,
                 `time_offset`
-            FROM `session` WHERE id = 1
+            FROM `session` WHERE `id` = 1;
             '''
         )
         session = cursor.fetchone()
@@ -345,7 +346,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
                 `qts`,
                 `seq`,
                 `date`
-            FROM `state` WHERE id = 1
+            FROM `state` WHERE `id` = 1;
             '''
         )
         state = cursor.fetchone()
@@ -382,30 +383,34 @@ class SqliteSession(BaseSqlite, AbstractSession):
                 `id`,
                 `dc_id`
             )
-            VALUES (1, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                dc_id = EXCLUDED.dc_id
+            VALUES (1, ?);
             ''',
             (dc_id,)
         )
 
     @with_cursor
     def set_auth_key(self, cursor, auth_key, created_at):
-        cursor.execute(
-            '''
-            INSERT INTO `session` 
-            (
-                `id`,
-                `auth_key`,
-                `created_at`
+        cursor.execute('SELECT 1 FROM `session` WHERE `id` = 1;')
+        if cursor.fetchone():
+            cursor.execute(
+                '''
+                UPDATE `session` SET
+                    `auth_key` = ?,
+                    `created_at` = ?
+                WHERE `id` = 1;
+                ''',
+                (auth_key, created_at)
             )
-            VALUES (1, ?, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                auth_key = EXCLUDED.auth_key,
-                created_at = EXCLUDED.created_at
-            ''',
-            (auth_key, created_at)
-        )
+        else:
+            cursor.execute(
+                '''
+                INSERT INTO `session`
+                    (id, auth_key, created_at)
+                VALUES (1, ?, ?);
+                ''',
+                (auth_key, created_at)
+            )
+
         super().set_auth_key(cursor, auth_key, created_at)
     
     @with_cursor
@@ -415,20 +420,30 @@ class SqliteSession(BaseSqlite, AbstractSession):
         time_offset: int
     ):
         self._time_offset = time_offset
-        cursor.execute(
-            '''
-            INSERT INTO `session` 
-            (
-                `id`,
-                `time_offset`
+
+        cursor.execute('SELECT 1 FROM `session` WHERE `id` = 1;')
+        if cursor.fetchone():
+            cursor.execute(
+                '''
+                UPDATE `session` SET
+                    `time_offset` = ?
+                WHERE `id` = 1;
+                ''',
+                (time_offset,)
             )
-            VALUES (1, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                time_offset = EXCLUDED.time_offset
-            ''',
-            (time_offset,)
-        )
-    
+        else:
+            cursor.execute(
+                '''
+                INSERT INTO `session`
+                    (
+                        `id`,
+                        `time_offset`
+                    )
+                VALUES (1, ?);
+                ''',
+                (time_offset,)
+            )
+
     # entities
     @with_cursor
     def get_entity(
@@ -474,7 +489,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
                     `is_bot`,
                     `phone`,
                     `username`
-                FROM `users` WHERE {where_sql} LIMIT 1
+                FROM `users` WHERE {where_sql} LIMIT 1;
                 ''',
                 tuple(wheres.values())
             )
@@ -490,7 +505,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
                     `access_hash`,
                     `title`,
                     `username`
-                FROM `channels` WHERE {where_sql} LIMIT 1
+                FROM `channels` WHERE {where_sql} LIMIT 1;
                 ''',
                 tuple(wheres.values())
             )
@@ -529,32 +544,51 @@ class SqliteSession(BaseSqlite, AbstractSession):
 
         if is_channel:
             cursor.execute(
-                '''
-                INSERT INTO `channels` 
-                    (
-                        `id`,
-                        `access_hash`,
-                        `title`,
-                        `username`
-                    )
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(`id`) DO UPDATE SET 
-                    `access_hash` = COALESCE(EXCLUDED.access_hash, `access_hash`),
-                    `title` = COALESCE(EXCLUDED.title, `title`),
-                    `username` = COALESCE(EXCLUDED.username, `username`)
-                ''',
-                (
-                    entity.id,
-                    entity.access_hash,
-                    entity.title,
-                    entity.username
-                )
+                'SELECT 1 FROM `channels` WHERE `id` = ?;',
+                (entity.id,)
             )
+
+            if cursor.fetchone():
+                cursor.execute(
+                    '''
+                    UPDATE `channels` SET
+                        `access_hash` = ?,
+                        `title` = ?,
+                        `username` = ?
+                    WHERE `id` = ?;
+                    ''',
+                    (
+                        entity.access_hash,
+                        entity.title,
+                        entity.username,
+                        entity.id
+                    )
+                )
+
+            else:
+                cursor.execute(
+                    '''
+                    INSERT INTO `channels` 
+                        (
+                            `id`,
+                            `access_hash`,
+                            `title`,
+                            `username`
+                        )
+                    VALUES (?, ?, ?, ?);
+                    ''',
+                    (
+                        entity.id,
+                        entity.access_hash,
+                        entity.title,
+                        entity.username
+                    )
+                )
 
         else:
             cursor.execute(
                 '''
-                INSERT INTO `users` 
+                INSERT OR REPLACE INTO `users` 
                     (
                         `id`,
                         `access_hash`,
@@ -563,12 +597,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
                         `phone`,
                         `username`
                     )
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(`id`) DO UPDATE SET 
-                    `access_hash` = COALESCE(EXCLUDED.access_hash, `access_hash`),
-                    `name` = COALESCE(EXCLUDED.name, `name`),
-                    `phone` = COALESCE(EXCLUDED.phone, `phone`),
-                    `username` = COALESCE(EXCLUDED.username, `username`)  
+                VALUES (?, ?, ?, ?, ?, ?);
                 ''',
                 (
                     entity.id,
@@ -585,9 +614,9 @@ class SqliteSession(BaseSqlite, AbstractSession):
                 if self._user_id is None:
                     cursor.execute(
                         '''
-                        UPDATE `session`
-                        SET `user_id` = ?
-                        WHERE `id` = ?
+                        UPDATE `session` SET
+                            `user_id` = ?
+                        WHERE `id` = ?;
                         ''',
                         (entity.id, 1)
                     )
@@ -612,7 +641,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
 
         cursor.execute(
             '''
-            INSERT INTO `state` 
+            INSERT OR REPLACE INTO `state` 
             (
                 `id`,
                 `pts`,
@@ -620,13 +649,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
                 `seq`,
                 `date`
             )
-            VALUES (1, ?, ?, ?, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                `pts` = EXCLUDED.pts,
-                `qts` = EXCLUDED.qts,
-                `seq` = EXCLUDED.seq,
-                `date` = EXCLUDED.date
-            
+            VALUES (1, ?, ?, ?, ?);
             ''',
             (self._pts, self._qts, self._seq, self._state_date)
         )
@@ -641,7 +664,7 @@ class SqliteSession(BaseSqlite, AbstractSession):
             '''
             SELECT 
                 `pts`
-            FROM `channels` WHERE `id` = ?
+            FROM `channels` WHERE `id` = ?;
             ''',
             (id,)
         )
@@ -651,18 +674,30 @@ class SqliteSession(BaseSqlite, AbstractSession):
     @with_cursor
     def set_channel_pts(self, cursor: sqlite3.Cursor, id: int, pts: int):
         cursor.execute(
-            '''
-            INSERT INTO `channels` 
+            'SELECT 1 FROM `channels` WHERE `id` = ?;',
+            (id,)
+        )
+        if cursor.fetchone():
+            cursor.execute(
+                '''
+                UPDATE `channels` SET
+                    `pts` = ?
+                WHERE `id` = ?;
+                ''',
+                (pts, id)
+            )
+        else:
+            cursor.execute(
+                '''
+                INSERT INTO `channels`
                 (
                     `id`,
-                    `pts`  
+                    `pts`
                 )
-            VALUES (?, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                `pts` = COALESCE(EXCLUDED.pts, `pts`)
-            ''',
-            (id, pts)
-        )
+                VALUES (?, ?);
+                ''',
+                (id, pts)
+            )
 
 
 class SqlitePfsSession(BaseSqlite, AbstractPfsSession):
@@ -689,7 +724,7 @@ class SqlitePfsSession(BaseSqlite, AbstractPfsSession):
                 `auth_key`,
                 `created_at`,
                 `expires_at`
-            FROM `session` WHERE id = 1
+            FROM `session` WHERE `id` = 1;
             '''
         )
         session = cursor.fetchone()
@@ -708,23 +743,32 @@ class SqlitePfsSession(BaseSqlite, AbstractPfsSession):
     
     @with_cursor
     def set_auth_key(self, cursor, auth_key, created_at, expires_at):
-        cursor.execute(
-            '''
-            INSERT INTO `session` 
-            (
-                `id`,
-                `auth_key`,
-                `created_at`,
-                `expires_at`
-                
+        cursor.execute('SELECT 1 FROM `session` WHERE `id` = 1')
+        if cursor.fetchone():
+            cursor.execute(
+                '''
+                UPDATE `session` SET
+                    `auth_key` = ?,
+                    `created_at` = ?,
+                    `expires_at` = ?
+                WHERE `id` = 1;
+                ''',
+                (auth_key, created_at, expires_at)
             )
-            VALUES (1, ?, ?, ?)
-            ON CONFLICT(`id`) DO UPDATE SET 
-                auth_key = EXCLUDED.auth_key,
-                created_at = EXCLUDED.created_at,
-                expires_at = EXCLUDED.expires_at
-            ''',
-            (auth_key, created_at, expires_at)
-        )
+        else:
+            cursor.execute(
+                '''
+                INSERT INTO `session`
+                (
+                    `id`,
+                    `auth_key`,
+                    `created_at`,
+                    `expires_at`
+                )
+                VALUES (1, ?, ?, ?);
+                ''',
+                (auth_key, created_at, expires_at)
+            )
+            
         self._expires_at = expires_at
         super().set_auth_key(cursor, auth_key, created_at)

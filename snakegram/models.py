@@ -328,9 +328,8 @@ class MessageEntity:
             'type': self.type,
             'offset': self.offset,
             'length': self.length,
-            'url': self.url,
+            'data': self.data,
             'user_id': self.user_id,
-            'lang_code': self.lang_code,
             'custom_emoji_id': self.custom_emoji_id
         }
 
@@ -342,9 +341,9 @@ class MessageEntity:
         type: enums.MessageEntityType,
         offset: int,
         length: int,
-        url: t.Optional[str] = None,
+        *,
+        data: t.Optional[str] = None,
         user_id: t.Optional[int] = None,
-        lang_code: t.Optional[str] = None,
         custom_emoji_id: t.Optional[int] = None,
     ):
 
@@ -352,9 +351,8 @@ class MessageEntity:
         self.offset = offset
         self.length = length
         
-        self.url = url
+        self.data = data
         self.user_id = user_id
-        self.lang_code = lang_code
         self.custom_emoji_id = custom_emoji_id
 
 class UpdateTracker:

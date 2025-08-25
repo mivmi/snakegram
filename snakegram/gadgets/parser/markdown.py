@@ -4,7 +4,25 @@ from .base import BaseParser
 from ...enums import MessageEntityType
 from ...models import MessageEntity
 
-# https://www.geeksforgeeks.org/introduction-to-directed-acyclic-graph/
+GT = '>'
+NOT = '!'
+STAR = '*'
+UNDERSCORE = '_'
+BACKTICK = '`'
+TRIPLE_BACKTICK = '```'
+TILDE = '~'
+DOUBLE_UNDERSCORE = '__'
+DOUBLE_PIPE = '||'
+
+BRACKET_OPEN = '['
+BRACKET_CLOSE = ']'
+
+PAREN_OPEN = '('
+PAREN_CLOSE = ')'
+
+_PRE_CODE = object()
+_BLOCK_QUOTE = object()
+
 def build(markers: t.List[str]):
     table = {}
     final = {}
@@ -21,14 +39,26 @@ def build(markers: t.List[str]):
 
     return table, final
 
+
 class Markdown(BaseParser):
     markers = [
-        '>',         # > blockquote
-        '!>',        # collapsed blockquote
-        '[', ']',
-        '(', ')'
+        GT,
+        NOT,
+        BRACKET_OPEN,
+        BRACKET_CLOSE,
+        PAREN_OPEN,
+        PAREN_CLOSE
     ]
-    delimiters = ['*', '_', '`', '~', '__', '||', '```']
+
+    delimiters = [
+        STAR,
+        UNDERSCORE,
+        BACKTICK,
+        TILDE,
+        DOUBLE_UNDERSCORE,
+        DOUBLE_PIPE,
+        TRIPLE_BACKTICK
+    ]
     markers.extend(delimiters)
     state_table, final = build(markers)
 
@@ -40,7 +70,7 @@ class Markdown(BaseParser):
 
         index = 0
         length = len(text)
-    
+
         while index < length:
             char = text[index]
 
@@ -48,7 +78,6 @@ class Markdown(BaseParser):
             if char == '\\' and index + 1 < length:
                 index += 2
                 buffer += text[index - 1]
-    
                 continue
 
             state = 0
@@ -66,20 +95,12 @@ class Markdown(BaseParser):
 
                 if state in cls.final:
                     marker = cls.final[state]
-
-                    # check if `blockquote` markers (">", "!>") appear at the start of line
-                    if marker in ('>', '!>') and not (
-                        index == 0
-                        or text[index - 1] == '\n'
-                    ):
-                        break
-
                     last_final = marker
                     last_final_pos = state_index
 
             if last_final is not None:
                 if buffer:
-                    # flush the `buffer` as a plain text token before the marker
+                    # flush the `buffer` as a text token before the marker
                     tokens.append((None, buffer))
                     buffer = ''
 
@@ -113,20 +134,60 @@ class Markdown(BaseParser):
         tokens = cls.tokenize(text)
         offset = 0
         token_id = 0
-        while token_id < len(tokens):
-            entity = None
-            token_type, value = tokens[token_id]
-            ignore_token = (
-                token_type != '```'
-                and '```' in stacks
-            )
 
-            if token_type == '[' and not ignore_token:
+        while token_id < len(tokens):
+            ignore = _PRE_CODE in stacks
+            token_type, value = tokens[token_id]
+
+            if token_type == TRIPLE_BACKTICK:
+                entity_type, stack_offset, language = stacks.pop(_PRE_CODE, (None, None, None))
+
+                if entity_type is None:
+                    next_type, next_value = tokens[token_id + 1]
+                    if next_type is None:
+                        raw_lang, *remainder = next_value.split('\n', 1)
+
+                        if remainder and not any(
+                            e.isspace()
+                            for e in raw_lang.rstrip()
+                        ):
+
+                            rest = ''.join(remainder)
+                            language = raw_lang.strip()
+                            offset += cls.utf16_len(rest)
+                            raw_text += rest
+                            token_id += 1
+
+                    if language is None:
+                        entity_type = MessageEntityType.Pre
+
+                    else:
+                        entity_type = MessageEntityType.PreCode
+
+                    stacks[_PRE_CODE] = (entity_type, offset, language)
+    
+                else:
+                    entities.append(
+                        MessageEntity(
+                            entity_type,
+                            stack_offset,
+                            offset - stack_offset,
+                            data=language
+                        )
+                    )
+
+            elif token_type == BRACKET_OPEN and not ignore:
                 values = []
-        
+
                 for index, expect in enumerate(
-                    [None, ']', '(', None, ')'], # [text](url)
-                    start=1 # skip [
+                    [
+                        None,
+                        BRACKET_CLOSE,
+                        PAREN_OPEN,
+                        None,
+                        PAREN_CLOSE
+                    ],
+                    start=1
                 ):
                     if token_id + index >= len(tokens):
                         raw_text += token_type
@@ -140,144 +201,105 @@ class Markdown(BaseParser):
 
                     if next_type is None:
                         values.append(next_value)
-                
+
                 else:
-                    text = values[0]
-                    length = cls.utf16_len(text)
-                    entity = cls._build_entity(
-                        'url',
-                        offset,
-                        length,
-                        values[1]
+                    text_value = values[0]
+                    length = cls.utf16_len(text_value)
+    
+                    entities.append(
+                        cls._handle_link(
+                            values[1],
+                            offset,
+                            length
+                        )
                     )
 
                     offset += length
-                    raw_text += text
+                    raw_text += text_value
                     token_id += 5
-
-            elif token_type in ('>', '!>') and not ignore_token:
-                buffer = ''
-
-                while token_id + 1 < len(tokens):
-                    if tokens[token_id][0] != token_type:
-                        token_id -= 1
-                        break
-
-                    next_type, next_value = tokens[token_id + 1]
-                    if next_type is not None:
-                        break
-
-                    buffer += next_value
-                    token_id += 2
-
-                if buffer:
-                    length = cls.utf16_len(buffer)
-                    entity = cls._build_entity(
-                        token_type,
-                        offset,
-                        length
+    
+            elif (
+                (
+                    token_type == GT
+                    or (
+                        token_type == NOT
+                        and token_id + 1 < len(tokens)
+                        and tokens[token_id + 1][0] == GT
                     )
+                )
+                and (
+                    not raw_text
+                    or raw_text[-1] == '\n'
+                )
+                and not ignore
+            ):
+                if token_type == NOT:
+                    token_id += 1
+                    entity_type = MessageEntityType.ExpandableBlockQuote
 
-                    offset += length
-                    raw_text += buffer
+                else:
+                    entity_type = MessageEntityType.BlockQuote
 
-            elif token_type in cls.delimiters and not ignore_token:
-                stack_offset, arguemnt = stacks.pop(token_type, (None, None))
+                stacks[_BLOCK_QUOTE] = (entity_type, offset)
+
+            elif token_type in cls.delimiters and not ignore:                
+                types = {
+                    STAR: MessageEntityType.Bold,
+                    TILDE: MessageEntityType.Strikethrough,
+                    BACKTICK: MessageEntityType.Code,
+                    UNDERSCORE: MessageEntityType.Italic,
+                    DOUBLE_PIPE: MessageEntityType.Spoiler,
+                    DOUBLE_UNDERSCORE: MessageEntityType.Underline
+                }
+
+                entity_type = types[token_type]
+                stack_offset = stacks.pop(entity_type, None)
 
                 if stack_offset is None:
-                    if token_type == '```':
-                        next_type, next_value = tokens[token_id + 1]
-
-                        if next_type is None:
-                            lang_code, *remainder = next_value.split('\n', 1)
-
-                            if remainder and not any(
-                                e.isspace()
-                                for e in lang_code.rstrip()
-                            ):
-                                rest = ''.join(remainder)
-                                arguemnt = lang_code.strip()
-
-                                offset += cls.utf16_len(rest)
-                                raw_text += rest
-                                token_id += 1
-
-                    stacks[token_type] = (offset, arguemnt)
-
+                    stacks[entity_type] = offset
+    
                 else:
                     length = offset - stack_offset
-                    entity = cls._build_entity(
-                        token_type,
-                        stack_offset,
-                        length,
-                        arguemnt
+                    entities.append(
+                        MessageEntity(
+                            entity_type,
+                            stack_offset,
+                            length
+                        )
                     )
 
             else:
                 offset += cls.utf16_len(value)
                 raw_text += value
 
+                if (
+                    (
+                        value.endswith('\n')
+                        or
+                        token_id + 1 >= len(tokens)
+                    )
+                    and _BLOCK_QUOTE in stacks
+                ):
+                    entity_type, stack_offset = stacks.pop(_BLOCK_QUOTE)
+
+                    entities.append(
+                        MessageEntity(
+                            entity_type,
+                            stack_offset,
+                            offset - stack_offset
+                        )
+                    )
+
             token_id += 1
-            if entity is not None:
-                entities.append(entity)
 
-        return raw_text, entities
+            # ensure open blockquote is closed at the end
+            if (
+                token_id >= len(tokens)
+                and _BLOCK_QUOTE in stacks
+            ):
+                tokens.append((None, '')) 
 
-    @classmethod
-    def _build_entity(
-        cls,
-        entity: str,
-        offset: int,
-        length: int,
-        arguemnt: t.Optional[str] = None
-    ):
-        types_map = {
-            '*': MessageEntityType.Bold,
-            '_': MessageEntityType.Italic,
-            '`': MessageEntityType.Code,
-            '~': MessageEntityType.Strikethrough,
-            '__': MessageEntityType.Underline,
-            '||': MessageEntityType.Spoiler
-        }
-
-        entity_type = types_map.get(entity)
-        if entity_type is not None:
-            return MessageEntity(
-                entity_type,
-                offset=offset,
-                length=length
-            )
-
-        if entity == '```':
-            entity_type = (
-                MessageEntityType.PreCode
-                if arguemnt else
-                MessageEntityType.Pre
-            )
-
-            return MessageEntity(
-                entity_type,
-                offset=offset,
-                length=length,
-                lang_code=arguemnt
-            )
-
-        if entity in ('>', '!>'):
-            entity_type = (
-                MessageEntityType.BlockQuote
-                if entity == '>' else
-                MessageEntityType.ExpandableBlockQuote
-            )
-
-            return MessageEntity(
-                entity_type,
-                offset=offset,
-                length=length
-            )
-
-        if arguemnt and entity == 'url':
-            return cls._handle_link(arguemnt, offset, length)
-
+        return cls._trim_entities(raw_text, entities)
 
 def parse_markdown(text: str):
     """

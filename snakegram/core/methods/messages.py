@@ -1,10 +1,13 @@
 import asyncio
+import warnings
 import typing as t
+
 from ..internal import Uploader
-from ... import alias, enums, helpers
+from ... import alias, helpers
 from ...tl import secret, types, functions
+from ...enums import MessageEntityType
 from ...gadgets.utils import env, to_timestamp, time_difference
-from ...gadgets.parser import parse_markdown
+from ...gadgets.parser import parse_html, parse_markdown
 
 if t.TYPE_CHECKING:
     from ..telegram import Telegram
@@ -679,7 +682,7 @@ class Messages:
         """
 
         if parse_mode == 'html':
-            raise NotImplementedError('HTML parse mode is not supported yet')
+            text, message_entities = parse_html(message)
         
         elif parse_mode in ('md', 'markdown'):
             text, message_entities = parse_markdown(message)
@@ -693,110 +696,133 @@ class Messages:
         entities = []
         if _layer_at_least(45):
             # no message entities are supported below layer 46
+        
             for entity in message_entities:
-                item = None
-                etype = entity.type
+                entity_type = entity.type
 
-                if etype is enums.MessageEntityType.Url:
+                if entity_type is MessageEntityType.Url:
                     item = types.MessageEntityUrl(
                         entity.offset,
                         length=entity.length
                     )
                 
-                elif etype is enums.MessageEntityType.Code:
+                elif entity_type is MessageEntityType.Code:
                     item = types.MessageEntityCode(
                         entity.offset,
                         length=entity.length
                     )
 
-                elif etype is enums.MessageEntityType.Bold:
+                elif entity_type is MessageEntityType.Bold:
                     item = types.MessageEntityBold(
                         entity.offset,
                         length=entity.length
                     )
 
-                elif etype is enums.MessageEntityType.Italic:
+                elif entity_type is MessageEntityType.Italic:
                     item = types.MessageEntityItalic(
                         entity.offset,
                         length=entity.length
                     )
 
-                elif etype is enums.MessageEntityType.MentionName:
+                elif entity_type is MessageEntityType.MentionName:
                     item = types.MessageEntityMentionName(
                         entity.offset,
                         length=entity.length,
                         user_id=entity.user_id
                     )
 
-                elif etype is enums.MessageEntityType.Pre:
+                elif entity_type in (
+                    MessageEntityType.Pre,
+                    MessageEntityType.PreCode
+                ):
                     item = types.MessageEntityPre(
                         entity.offset,
                         length=entity.length,
-                        language=entity.lang_code
+                        language=entity.data or ''
                     )
 
-                elif etype is enums.MessageEntityType.TextUrl:
+                elif entity_type is MessageEntityType.TextUrl:
                     item = types.MessageEntityTextUrl(
                         entity.offset,
                         length=entity.length,
-                        url=entity.url
+                        url=entity.data
                     )
 
                 # layer >= 101
-                elif etype is enums.MessageEntityType.Underline:
-                    if _layer_at_least(101):
-                        item = types.MessageEntityUnderline(
-                            entity.offset,
-                            length=entity.length
-                        )
+                elif entity_type is MessageEntityType.Underline:
+                    if not _layer_at_least(101):
+                        continue
+                    
+                    item = types.MessageEntityUnderline(
+                        entity.offset,
+                        length=entity.length
+                    )
 
-                elif etype in (
-                    enums.MessageEntityType.BlockQuote,
-                    enums.MessageEntityType.ExpandableBlockQuote
+                elif entity_type in (
+                    MessageEntityType.BlockQuote,
+                    MessageEntityType.ExpandableBlockQuote
                 ):
-                    if _layer_at_least(101):
-                        if secret_layer:
-                            # no support collapsed
-                            item = secret.MessageEntityBlockquote(
-                                entity.offset,
-                                length=entity.length
-                            )
+                    if not _layer_at_least(101):
+                        continue
 
-                        else:
-                            item = types.MessageEntityBlockquote(
-                                entity.offset,
-                                length=entity.length,
-                                collapsed=isinstance(
-                                    etype,
-                                    enums.MessageEntityType.ExpandableBlockQuote
-                                )
-                            )
+                    collapsed = entity_type is MessageEntityType\
+                        .ExpandableBlockQuote
 
-                elif etype is enums.MessageEntityType.Strikethrough:
-                    if _layer_at_least(101):
-                        item = types.MessageEntityStrike(
+                    if secret_layer: # no support collapsed
+                        item = secret.MessageEntityBlockquote(
                             entity.offset,
                             length=entity.length
                         )
 
-                # layer >= 144
-                elif etype is enums.MessageEntityType.Spoiler:
-                    if _layer_at_least(144):
-                        item = types.MessageEntitySpoiler(
-                            entity.offset,
-                            length=entity.length
-                        )
+                    else:
 
-                elif etype is enums.MessageEntityType.CustomEmoji:
-                    if _layer_at_least(144):
-                        item = types.MessageEntityCustomEmoji(
+                        item = types.MessageEntityBlockquote(
                             entity.offset,
                             length=entity.length,
-                            document_id=entity.custom_emoji_id
+                            collapsed=collapsed
                         )
 
-                if item is not None:
-                    entities.append(item)
+                elif entity_type is MessageEntityType.Strikethrough:
+                    if not _layer_at_least(101):
+                        continue
+                    
+                    item = types.MessageEntityStrike(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                # layer >= 144
+                elif entity_type is MessageEntityType.Spoiler:
+                    if not _layer_at_least(144):
+                        continue
+                    
+                    item = types.MessageEntitySpoiler(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.CustomEmoji:
+                    if not _layer_at_least(144):
+                        continue
+                    
+                    item = types.MessageEntityCustomEmoji(
+                        entity.offset,
+                        length=entity.length,
+                        document_id=entity.custom_emoji_id
+                    )
+                
+                else:
+                    warnings.warn(
+                        'Skipping unsupported entity type: %r at offset=%d, length=%d' % (
+                            entity_type.name,
+                            entity.offset,
+                            entity.length
+                        ),
+                        UserWarning
+                    )
+                    continue
+
+                entities.append(item)
 
         return text, entities
 

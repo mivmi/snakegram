@@ -1,13 +1,12 @@
 import asyncio
 import warnings
 import typing as t
-import random
 
 from ..internal import Uploader
 from ... import alias, helpers
 from ...tl import secret, types, functions
 from ...enums import MessageEntityType
-from ...gadgets.utils import env, to_timestamp, time_difference
+from ...gadgets.utils import env, to_timestamp, time_difference, is_like_list
 from ...gadgets.parser import parse_html, parse_markdown
 
 if t.TYPE_CHECKING:
@@ -21,13 +20,11 @@ TypeReply = t.Union[
     types.TypeInputReplyTo
 ]
 
+LikeMessageId = t.Union[int, types.Message]
 LikeInputFile = t.Union[Uploader, alias.LikeFile, types.TypeInputFile]
 LikeInputMedia = t.Union[LikeInputFile, types.TypeInputMedia]
 
 PARSE_MODE = env('PARSE_MODE', 'md', str)
-
-def generate_random_id(n: int) -> list[int]:
-    return [random.getrandbits(63) for _ in range(n)]
 
 
 class Messages:
@@ -53,15 +50,15 @@ class Messages:
         entities: t.List[types.TypeMessageEntity] = None,
         parse_mode: alias.ParseMode = None,
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
-        reply_markup: t.Optional[types.TypeReplyMarkup] = None
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None        
     ) -> types.TypeUpdate:
         """
         Sends a text message to the specified `user`, `chat`, or `channel`.
-
+        
         Args:
             target (`LikeEntity`):
                 The `user` or `chat` to whom the message will be sent.
-
+            
             message (`str` | `types.Message`):
                 The text to send, or `types.Message` object to reuse its content.
 
@@ -73,37 +70,37 @@ class Messages:
 
             send_as (`LikeEntity`, optional):
                 The entity to send the message as.
-
+            
             schedule_date (`LikeTime`, optional):
                 The date and time when the message should be sent, if scheduling is desired.
-
+            
             silent (`bool`, optional):
                 If `True`, the message will be sent silently (no notification).
-
+            
             noforwards (`bool`, optional):
                 *Bots only*. Prevents the message from being forwarded or saved by users.
-
+            
             background (`bool`, optional):
                 If `True`, sends the message in the background.
 
             no_webpage (`bool`, optional):
                 If `True`, disables webpage preview.
-
+            
             clear_draft (`bool`, optional):
                 If `True`, clears existing draft message in the target chat.
-
+            
             invert_media (`bool`, optional):
                 If `True`, places the link preview above the message instead of below.
-
+            
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
                 Only successfully delivered messages are charged.
 
             update_stickersets_order (`bool`, optional):
                 If `True`, moves the used stickerset to the top.
-
+            
             effect (`int`, optional):
                 Specifies a message effect to use for the message.
                 To get the list of available effects, use the function `messages.GetAvailableEffects`.
@@ -111,17 +108,17 @@ class Messages:
             entities (`List[MessageEntity]`, optional):
                 List of message formatting `entities`.
                 If provided, parsing will be skipped and the message will be formatted directly using this list.
-
+            
             parse_mode (`str`, optional):
                 Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
                 Defaults to the client's global parse mode.
-
+            
             quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional)
-                Adds the message to a quick reply shortcut by `id`, `name`, or input object, instead of sending it normally.
-
+                Adds the message to a quick reply shortcut by `id`, `name`, or input object.
+            
             reply_markup (`ReplyMarkup`, optional):
                 *Bot only*. Markup for attaching reply buttons (`inline`, `keyboard`, etc.) to the message.
-
+                
         Example:
         ```python
             await client.send_text('me', 'Hello **World**!')
@@ -173,7 +170,7 @@ class Messages:
                 reply_markup
             )
             message_text = message.message
-
+        
         else:
             message_text = message
 
@@ -186,7 +183,7 @@ class Messages:
         input_peer = await self.get_input_peer(target)
         if send_as is not None:
             send_as = await self.get_input_peer(send_as)
-
+        
         if (
             reply_to
             and not isinstance(reply_to, types.TypeInputReplyTo)
@@ -216,8 +213,8 @@ class Messages:
             effect=effect,
             quick_reply_shortcut=quick_reply
         )
-
-        return await self._invoke_wait_update(request)
+        
+        return await self._invoke_wait_updates(request, input_peer)
 
     async def send_media(
         self: 'Telegram',
@@ -228,7 +225,7 @@ class Messages:
         reply_to: t.Optional[TypeReply] = None,
         send_as: alias.LikeEntity = None,
         schedule_date: alias.LikeTime = None,
-
+        
         silent: bool = False,
         spoiler: bool = False,
         force_file: bool = False,
@@ -250,7 +247,7 @@ class Messages:
 
         parse_mode: alias.ParseMode = None,
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
-        reply_markup: t.Optional[types.TypeReplyMarkup] = None
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None     
     ):
         """Sends a media message to the specified `user`, `chat`, or `channel`.
 
@@ -261,7 +258,7 @@ class Messages:
             media (`LikeInputFile`):
                 Attached media to send.
                 such as a file path, file-like, `types.TypeInputFile` or `types.TypeInputMedia` object.
-
+            
             message (`str` | `types.Message`):
                 Optional caption for the media.
                 Can be `str` or `types.Message` object to reuse formatting entities.
@@ -271,16 +268,16 @@ class Messages:
                 If an integer is provided, it will be treated as `msg_id`.
                 If `types.Message` is given, the reply will target that message directly.
                 Also, you can pass an instance of `types.InputReplyTo` directly.
-
+            
             send_as (`LikeEntity`, optional):
                 The entity to send the message as.
-
+            
             schedule_date (`LikeTime`, optional):
                 The date and time when the message should be sent, if scheduling is desired.
-
+            
             silent (`bool`, optional):
                 If `True`, the message will be sent silently (no notification).
-
+            
             spoiler (`bool`, optional):
                 If `True`, marks the media as a spoiler (blurred until tapped).
 
@@ -289,29 +286,29 @@ class Messages:
 
             noforwards (`bool`, optional):
                 *Bots only*. Prevents the message from being forwarded or saved by users.
-
+            
             background (`bool`, optional):
                 If `True`, sends the message in the background.
-
+            
             clear_draft (`bool`, optional):
                 If `True`, clears existing draft message in the target chat.
-
+            
             invert_media (`bool`, optional):
                 If `True`, places the media above the message instead of below
-
+            
             nosound_video (`bool`, optional):
                 If `True`, specifies that the attached document is a video file
                 with no audio tracks (for example, a GIF animation, even if encoded as MPEG4).
 
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
                 Only successfully delivered messages are charged.
 
             update_stickersets_order (`bool`, optional):
                 If `True`, moves the used stickerset to the top.
-
+            
             ttl (`LikeTime`, optional):
                 Self destruct timer for the media, in seconds or as date/time.
 
@@ -321,17 +318,17 @@ class Messages:
 
             thumb (`LikeInputFile`, optional):
                 Optional thumbnail for the media.
-
+            
             entities (`List[MessageEntity]`, optional):
                 List of message formatting `entities` for the caption.
                 If provided, parsing will be skipped and the caption will be formatted directly.
-
+            
             stickers (`List[InputDocument]`, optional):
                 Stickers to attach to the media.
-
+            
             attributes (`List[DocumentAttribute]`, optional):
                 Attributes that specify the type of the document (`video`, `audio`, `voice`, `sticker`, etc.).
-
+            
             parse_mode (`str`, optional):
                 Specifies the parsing mode for the caption: `'md'`, `'markdown'`, or `'html'`.
                 Defaults to the client's global parse mode.
@@ -347,14 +344,14 @@ class Messages:
 
         # sending file
         await client.send_media('me', 'photo.jpg', message='My photo')
-
+        
         # sending a document with custom filename
         await client.send_media(
             chat,
             'report.pdf',
             attributes=[types.DocumentAttributeFilename('custom-name.pdf')]
         )
-
+        
         # sending with inline buttons
         await client.send_media(
             chat,
@@ -365,7 +362,7 @@ class Messages:
                 ]
             )
         )
-
+        
         # sending a dice using `types.TypeInputMedia`
         await client.send_media(chat, types.InputMediaDice('🎲'))
         ```
@@ -378,7 +375,7 @@ class Messages:
             nosound_video=nosound_video,
             thumb=thumb,
             stickers=stickers,
-            attributes=attributes
+            attributes=attributes 
         )
 
         if isinstance(message, types.Message):
@@ -392,7 +389,7 @@ class Messages:
                 reply_markup
             )
             message_text = message.message
-
+        
         else:
             message_text = message
 
@@ -416,7 +413,7 @@ class Messages:
         input_peer = await self.get_input_peer(target)
         if send_as is not None:
             send_as = await self.get_input_peer(send_as)
-
+        
         if (
             reply_to
             and not isinstance(reply_to, types.TypeInputReplyTo)
@@ -446,7 +443,7 @@ class Messages:
             effect=effect,
             quick_reply_shortcut=quick_reply
         )
-        return await self._invoke_wait_update(request)
+        return await self._invoke_wait_updates(request, input_peer)
 
     async def send_message(
         self: 'Telegram',
@@ -492,7 +489,7 @@ class Messages:
 
             message (`str` | `types.Message`, optional):
                 The text of the message, or a `types.Message` object
-                to reuse its content and entities.
+                to reuse its content and entities.  
                 When `media` is provided, this becomes the caption.
 
             media (`LikeInputFile`, optional):
@@ -528,9 +525,9 @@ class Messages:
                 If `True`, places the media above the message instead of below.
 
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
                 Only successfully delivered messages are charged.
 
             update_stickersets_order (`bool`, optional):
@@ -582,7 +579,7 @@ class Messages:
         Example:
         ```python
 
-        # send text
+        # send text 
         await client.send_message('me', 'Hello world!')
 
         # send photo with caption
@@ -606,7 +603,7 @@ class Messages:
         ```
         """
 
-        if media is None:
+        if media is None: 
             if isinstance(message, types.Message):
                 media = message.media
 
@@ -667,46 +664,62 @@ class Messages:
     async def forward_messages(
         self: 'Telegram',
         target: alias.LikeEntity,
-        messages: t.Union[int, types.Message, t.List[int], t.List[types.Message]],
         source: alias.LikeEntity,
+        messages: t.Union[LikeMessageId, t.List[LikeMessageId]],
         *,
-        drop_author: bool = False,
-        drop_media_captions: bool = False,
+        silent: bool = False,
         noforwards: bool = False,
         background: bool = False,
-        silent: bool = False,
+        with_my_score: bool = False,
+        drop_author: bool = False,
+        drop_media_captions: bool = False,
+        allow_paid_floodskip: bool = False,
+        top_msg_id: t.Optional[int] = None,
         schedule_date: alias.LikeTime = None,
         send_as: alias.LikeEntity = None,
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None
     ) -> t.List[types.TypeUpdate]:
         """
-        Forwards messages from one chat to another.
+        Forwards messages to the specified `user`, `chat`, or `channel`.
 
         Args:
             target (`LikeEntity`):
-                The destination chat, user, or channel where messages will be forwarded.
-
-            messages (`int` | `types.Message` | `List[int]` | `List[types.Message]`):
-                The message(s) to forward. Can be a single message ID, a single Message object,
-                or a list of message IDs/Message objects.
+                The `user` or `chat` to whom the message will be sent.
 
             source (`LikeEntity`):
-                The source chat, user, or channel where the messages originate from.
+                The `user` or `chat` where the message is located.
 
-            drop_author (`bool`, optional):
-                If `True`, removes the original author information from forwarded messages.
-
-            drop_media_captions (`bool`, optional):
-                If `True`, removes captions from media messages when forwarding.
-
-            noforwards (`bool`, optional):
-                *Bots only*. Prevents the forwarded messages from being forwarded again.
-
-            background (`bool`, optional):
-                If `True`, forwards the messages in the background.
+            messages (`LikeMessageId` | `List[LikeMessageId]`):
+                The message(s) to forward.
+                Can be a `msg_id` (int), a `types.Message` object, or a list of these.
 
             silent (`bool`, optional):
                 If `True`, forwards messages silently (no notification).
+
+            noforwards (`bool`, optional):
+                *Bots only*. Prevents the messages from being forwarded or saved by users.
+
+            background (`bool`, optional):
+                If `True`, forwards the messages in the background.
+            
+            with_my_score (`bool`, optional):
+                If `True`, includes your score when forwarding games.
+
+            drop_author (`bool`, optional):
+                If `True`, forwards messages without quoting the original author.
+
+            drop_media_captions (`bool`, optional):
+                If `True`, strips captions from media.
+
+            allow_paid_floodskip (`bool`, optional):
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                Only successfully delivered messages are charged.
+
+            top_msg_id (`int`, optional):
+                The message id of the topic. Messages will be forwarded to this topic.
+                If not set, messages are sent to the general topic.
 
             schedule_date (`LikeTime`, optional):
                 The date and time when the messages should be forwarded, if scheduling is desired.
@@ -723,244 +736,111 @@ class Messages:
         Example:
         ```python
         # Forward a single message
-        msg = await client.send_text('source_chat', 'Hello!')
-        await client.forward_messages('target_chat', msg, 'source_chat')
-
-        # Forward multiple messages by ID
+        update = await client.send_text('source_chat', 'Hello!')
         await client.forward_messages(
-            'target_chat',
-            [123, 124, 125],
-            'source_chat'
+            update.message.peer_id,
+            'source_chat',
+            update.message
         )
 
         # Forward with options
         await client.forward_messages(
-            'target_chat',
-            messages_to_forward,
+            update.message.peer_id,
             'source_chat',
-            drop_author=True,
-            silent=True
+            update.message,
+            drop_author=True
         )
+
+        # Forward multiple messages ids
+        await client.forward_messages(
+            'source_chat',
+            'source_chat'
+            [123, 124, 125]
+        )
+
         ```
         """
-        # Normalize messages to list of IDs
-        if not isinstance(messages, list):
+
+        # normalize messages to list of IDs
+        is_single = not is_like_list(messages)
+        if is_single:
             messages = [messages]
 
-        message_ids = []
-        for msg in messages:
-            if isinstance(msg, types.Message):
-                message_ids.append(msg.id)
-            elif isinstance(msg, int):
-                message_ids.append(msg)
+        ids = []
+        video_timestamp = None
+        for index, msg in enumerate(messages):
+            if isinstance(msg, int):
+                ids.append(msg)
+            
+            elif isinstance(msg, types.Message):
+                ids.append(msg.id)
+
+                if is_single and isinstance(
+                    msg.media,
+                    types.MessageMediaDocument
+                ):
+                    video_timestamp = msg.media.video_timestamp
+
             else:
+                if is_single:
+                    raise TypeError(
+                        "Expected 'messages' to be a "
+                        "msg_id (int) or types.Message, or list of these, "
+                        f"not {type(msg).__name__}."
+                    )
+
                 raise TypeError(
-                    f"Message must be int or types.Message, not {type(msg).__name__}"
+                    f'Invalid item at index {index}: '
+                    f'Expected a msg_id (int) or types.Message, not {type(msg).__name__}'
                 )
 
-        if not message_ids:
-            raise ValueError("At least one message must be provided")
+        if not ids:
+            raise ValueError(
+                'You must provide at least one message.'
+            )
 
         # Handle quick reply shortcut
         if quick_reply is not None:
             if isinstance(quick_reply, str):
-                quick_reply = types.InputQuickReplyShortcut(shortcut=quick_reply)
+                quick_reply = types.InputQuickReplyShortcut(
+                    shortcut=quick_reply
+                )
+
             elif isinstance(quick_reply, int):
-                quick_reply = types.InputQuickReplyShortcutId(shortcut_id=quick_reply)
+                quick_reply = types.InputQuickReplyShortcutId(
+                    shortcut_id=quick_reply
+                )
 
         # Get input peers
-        input_peer_from = await self.get_input_peer(source)
         input_peer_to = await self.get_input_peer(target)
+        input_peer_from = await self.get_input_peer(source)
 
         if send_as is not None:
             send_as = await self.get_input_peer(send_as)
 
         request = functions.messages.ForwardMessages(
             from_peer=input_peer_from,
-            id=message_ids,
+            id=ids,
             to_peer=input_peer_to,
-            random_id= generate_random_id(len(message_ids)),
-            background=background,
-            with_my_score=False,
             silent=silent,
+            background=background,
+            with_my_score=with_my_score,
             drop_author=drop_author,
             drop_media_captions=drop_media_captions,
             noforwards=noforwards,
+            allow_paid_floodskip=allow_paid_floodskip,
+            top_msg_id=top_msg_id,
             schedule_date=(
                 None
                 if schedule_date is None else
                 to_timestamp(schedule_date)
             ),
             send_as=send_as,
-            quick_reply_shortcut=quick_reply
+            quick_reply_shortcut=quick_reply,
+            video_timestamp=video_timestamp
         )
 
         return await self._invoke_wait_updates(request, input_peer_to)
-
-    @staticmethod
-    def parse_message_text(
-        message: str,
-        parse_mode: alias.ParseMode,
-        secret_layer: t.Optional[int] = None
-    ):
-        """Parses formatted message (`Markdown` or `HTML`) into text and message entities.
-
-        Args:
-            message (`str`):
-                The text to be parsed.
-            parse_mode (`str`):
-                Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
-
-            secret_layer (`int`, optional):
-                The secret chat layer of the receiving client.
-                Because server can't access message content in secret chats, cannot generate message entities based on the receiver's layer.
-                So, the sender needs to build message entities that work with the receiver's layer.
-        """
-
-        if parse_mode == 'html':
-            text, message_entities = parse_html(message)
-
-        elif parse_mode in ('md', 'markdown'):
-            text, message_entities = parse_markdown(message)
-
-        else:
-            raise ValueError(f'Unsupported parse mode: {parse_mode!r}')
-
-        def _layer_at_least(n: int):
-            return not secret_layer or secret_layer >= n
-
-        entities = []
-        if _layer_at_least(45):
-            # no message entities are supported below layer 46
-
-            for entity in message_entities:
-                entity_type = entity.type
-
-                if entity_type is MessageEntityType.Url:
-                    item = types.MessageEntityUrl(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.Code:
-                    item = types.MessageEntityCode(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.Bold:
-                    item = types.MessageEntityBold(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.Italic:
-                    item = types.MessageEntityItalic(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.MentionName:
-                    item = types.MessageEntityMentionName(
-                        entity.offset,
-                        length=entity.length,
-                        user_id=entity.user_id
-                    )
-
-                elif entity_type in (
-                    MessageEntityType.Pre,
-                    MessageEntityType.PreCode
-                ):
-                    item = types.MessageEntityPre(
-                        entity.offset,
-                        length=entity.length,
-                        language=entity.data or ''
-                    )
-
-                elif entity_type is MessageEntityType.TextUrl:
-                    item = types.MessageEntityTextUrl(
-                        entity.offset,
-                        length=entity.length,
-                        url=entity.data
-                    )
-
-                # layer >= 101
-                elif entity_type is MessageEntityType.Underline:
-                    if not _layer_at_least(101):
-                        continue
-
-                    item = types.MessageEntityUnderline(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type in (
-                    MessageEntityType.BlockQuote,
-                    MessageEntityType.ExpandableBlockQuote
-                ):
-                    if not _layer_at_least(101):
-                        continue
-
-                    collapsed = entity_type is MessageEntityType\
-                        .ExpandableBlockQuote
-
-                    if secret_layer: # no support collapsed
-                        item = secret.MessageEntityBlockquote(
-                            entity.offset,
-                            length=entity.length
-                        )
-
-                    else:
-
-                        item = types.MessageEntityBlockquote(
-                            entity.offset,
-                            length=entity.length,
-                            collapsed=collapsed
-                        )
-
-                elif entity_type is MessageEntityType.Strikethrough:
-                    if not _layer_at_least(101):
-                        continue
-
-                    item = types.MessageEntityStrike(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                # layer >= 144
-                elif entity_type is MessageEntityType.Spoiler:
-                    if not _layer_at_least(144):
-                        continue
-
-                    item = types.MessageEntitySpoiler(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.CustomEmoji:
-                    if not _layer_at_least(144):
-                        continue
-
-                    item = types.MessageEntityCustomEmoji(
-                        entity.offset,
-                        length=entity.length,
-                        document_id=entity.custom_emoji_id
-                    )
-
-                else:
-                    warnings.warn(
-                        'Skipping unsupported entity type: %r at offset=%d, length=%d' % (
-                            entity_type.name,
-                            entity.offset,
-                            entity.length
-                        ),
-                        UserWarning
-                    )
-                    continue
-
-                entities.append(item)
-
-        return text, entities
 
     async def get_input_media(
         self: 'Telegram',
@@ -1026,7 +906,7 @@ class Messages:
                 None
                 if video_cover is None else
                 helpers.cast_to_input_photo(video_cover)
-            )
+            ) 
         )
 
     async def get_input_reply(
@@ -1090,56 +970,227 @@ class Messages:
         raise ValueError("You must provide either 'story_id' or 'msg'.")
 
     # privates
-    async def _invoke_wait_update(
+    async def _invoke_wait_updates(
         self: 'Telegram',
         request,
+        peer_id: types.TypeInputPeer,
+        *,
         timeout: t.Optional[float] = None
-    ) -> types.TypeUpdate:
-        future = self._update_tracker.add_random(
-            request.random_id,
-            peer_id=helpers.get_peer_id(request.peer)
-        )
+    ) -> t.Union[types.TypeUpdate, t.List[types.TypeUpdate]]:
+        
+        peer_id = helpers.get_peer_id(peer_id)
+
+        futures = []
+        random_ids = []
+        message_ids = []
+        if hasattr(request, 'random_id'):
+            is_single = not is_like_list(request.random_id)
+            random_ids = (
+                [request.random_id]
+                if is_single else 
+                request.random_id
+            )
+
+            for random_id in random_ids:
+                future = self._update_tracker.add_random(
+                    random_id,
+                    peer_id=peer_id
+                )
+                futures.append(future)
+
+        else:
+            is_single = True
+            message_ids = [request.id]
+
+            future = self._update_tracker.add_message(
+                request.id,
+                peer_id=peer_id
+            )
+            
+            futures.append(future)
 
         try:
             result = await self(request)
-            return await asyncio.wait_for(future, timeout)
+
+            response = await asyncio.wait_for(
+                asyncio.gather(*futures),
+                timeout
+            )
+            
+            return response[0] if is_single else list(response)
 
         except asyncio.TimeoutError:
             return result
 
         finally:
-            self._update_tracker.pop_random(request.random_id)
+            for random_id in random_ids:
+                self._update_tracker.pop_random(random_id)
 
-    async def _invoke_wait_updates(
-        self: 'Telegram',
-        request,
-        peer,
-        timeout: t.Optional[float] = None
-    ) -> t.List[types.TypeUpdate]:
-        random_ids = (
-            request.random_id
-            if isinstance(request.random_id, list)
-            else [request.random_id]
-        )
+            for message_id in message_ids:
+                self._update_tracker.pop_message(message_id, peer_id)
+    
+    # helper
+    @staticmethod
+    def parse_message_text(
+        message: str,
+        parse_mode: alias.ParseMode,
+        secret_layer: t.Optional[int] = None
+    ):
+        """Parses formatted message (`Markdown` or `HTML`) into text and message entities.
 
-        futures = [
-            self._update_tracker.add_random(rid, peer_id= helpers.get_peer_id(peer))
-            for rid in random_ids
-        ]
+        Args:
+            message (`str`):
+                The text to be parsed.
+            parse_mode (`str`):
+                Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
 
-        try:
-            result = await self(request)
+            secret_layer (`int`, optional):
+                The secret chat layer of the receiving client.
+                Because server can't access message content in secret chats, cannot generate message entities based on the receiver's layer.
+                So, the sender needs to build message entities that work with the receiver's layer.
+        """
 
-            updates: t.List[types.TypeUpdate] = []
-            for fut in futures:
-                try:
-                    upd = await asyncio.wait_for(fut, timeout)
-                    updates.append(upd)
-                except asyncio.TimeoutError:
-                    return result
+        if parse_mode == 'html':
+            text, message_entities = parse_html(message)
+        
+        elif parse_mode in ('md', 'markdown'):
+            text, message_entities = parse_markdown(message)
 
-            return updates if updates else result
+        else:
+            raise ValueError(f'Unsupported parse mode: {parse_mode!r}')
 
-        finally:
-            for rid in random_ids:
-                self._update_tracker.pop_random(rid)
+        def _layer_at_least(n: int):
+            return not secret_layer or secret_layer >= n
+
+        entities = []
+        if _layer_at_least(45):
+            # no message entities are supported below layer 46
+        
+            for entity in message_entities:
+                entity_type = entity.type
+
+                if entity_type is MessageEntityType.Url:
+                    item = types.MessageEntityUrl(
+                        entity.offset,
+                        length=entity.length
+                    )
+                
+                elif entity_type is MessageEntityType.Code:
+                    item = types.MessageEntityCode(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.Bold:
+                    item = types.MessageEntityBold(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.Italic:
+                    item = types.MessageEntityItalic(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.MentionName:
+                    item = types.MessageEntityMentionName(
+                        entity.offset,
+                        length=entity.length,
+                        user_id=entity.user_id
+                    )
+
+                elif entity_type in (
+                    MessageEntityType.Pre,
+                    MessageEntityType.PreCode
+                ):
+                    item = types.MessageEntityPre(
+                        entity.offset,
+                        length=entity.length,
+                        language=entity.data or ''
+                    )
+
+                elif entity_type is MessageEntityType.TextUrl:
+                    item = types.MessageEntityTextUrl(
+                        entity.offset,
+                        length=entity.length,
+                        url=entity.data
+                    )
+
+                # layer >= 101
+                elif entity_type is MessageEntityType.Underline:
+                    if not _layer_at_least(101):
+                        continue
+                    
+                    item = types.MessageEntityUnderline(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type in (
+                    MessageEntityType.BlockQuote,
+                    MessageEntityType.ExpandableBlockQuote
+                ):
+                    if not _layer_at_least(101):
+                        continue
+
+                    collapsed = entity_type is MessageEntityType\
+                        .ExpandableBlockQuote
+
+                    if secret_layer: # no support collapsed
+                        item = secret.MessageEntityBlockquote(
+                            entity.offset,
+                            length=entity.length
+                        )
+
+                    else:
+
+                        item = types.MessageEntityBlockquote(
+                            entity.offset,
+                            length=entity.length,
+                            collapsed=collapsed
+                        )
+
+                elif entity_type is MessageEntityType.Strikethrough:
+                    if not _layer_at_least(101):
+                        continue
+                    
+                    item = types.MessageEntityStrike(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                # layer >= 144
+                elif entity_type is MessageEntityType.Spoiler:
+                    if not _layer_at_least(144):
+                        continue
+                    
+                    item = types.MessageEntitySpoiler(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.CustomEmoji:
+                    if not _layer_at_least(144):
+                        continue
+                    
+                    item = types.MessageEntityCustomEmoji(
+                        entity.offset,
+                        length=entity.length,
+                        document_id=entity.custom_emoji_id
+                    )
+                
+                else:
+                    warnings.warn(
+                        'Skipping unsupported entity type: %r at offset=%d, length=%d' % (
+                            entity_type.name,
+                            entity.offset,
+                            entity.length
+                        ),
+                        UserWarning
+                    )
+                    continue
+
+                entities.append(item)
+
+        return text, entities

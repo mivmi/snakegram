@@ -6,7 +6,7 @@ from ..internal import Uploader
 from ... import alias, helpers
 from ...tl import secret, types, functions
 from ...enums import MessageEntityType
-from ...gadgets.utils import env, to_timestamp, time_difference
+from ...gadgets.utils import env, to_timestamp, time_difference, is_like_list
 from ...gadgets.parser import parse_html, parse_markdown
 
 if t.TYPE_CHECKING:
@@ -20,6 +20,7 @@ TypeReply = t.Union[
     types.TypeInputReplyTo
 ]
 
+LikeMessageId = t.Union[int, types.Message]
 LikeInputFile = t.Union[Uploader, alias.LikeFile, types.TypeInputFile]
 LikeInputMedia = t.Union[LikeInputFile, types.TypeInputMedia]
 
@@ -113,7 +114,7 @@ class Messages:
                 Defaults to the client's global parse mode.
             
             quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional)
-                Adds the message to a quick reply shortcut by `id`, `name`, or input object, instead of sending it normally.
+                Adds the message to a quick reply shortcut by `id`, `name`, or input object.
             
             reply_markup (`ReplyMarkup`, optional):
                 *Bot only*. Markup for attaching reply buttons (`inline`, `keyboard`, etc.) to the message.
@@ -213,7 +214,7 @@ class Messages:
             quick_reply_shortcut=quick_reply
         )
         
-        return await self._invoke_wait_update(request)
+        return await self._invoke_wait_updates(request, input_peer)
 
     async def send_media(
         self: 'Telegram',
@@ -442,7 +443,7 @@ class Messages:
             effect=effect,
             quick_reply_shortcut=quick_reply
         )
-        return await self._invoke_wait_update(request)
+        return await self._invoke_wait_updates(request, input_peer)
 
     async def send_message(
         self: 'Telegram',
@@ -660,7 +661,375 @@ class Messages:
                 reply_markup=reply_markup
             )
 
+    async def forward_messages(
+        self: 'Telegram',
+        target: alias.LikeEntity,
+        source: alias.LikeEntity,
+        messages: t.Union[LikeMessageId, t.List[LikeMessageId]],
+        *,
+        silent: bool = False,
+        noforwards: bool = False,
+        background: bool = False,
+        with_my_score: bool = False,
+        drop_author: bool = False,
+        drop_media_captions: bool = False,
+        allow_paid_floodskip: bool = False,
+        top_msg_id: t.Optional[int] = None,
+        schedule_date: alias.LikeTime = None,
+        send_as: alias.LikeEntity = None,
+        quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None
+    ) -> t.List[types.TypeUpdate]:
+        """
+        Forwards messages to the specified `user`, `chat`, or `channel`.
+
+        Args:
+            target (`LikeEntity`):
+                The `user` or `chat` to whom the message will be sent.
+
+            source (`LikeEntity`):
+                The `user` or `chat` where the message is located.
+
+            messages (`LikeMessageId` | `List[LikeMessageId]`):
+                The message(s) to forward.
+                Can be a `msg_id` (int), a `types.Message` object, or a list of these.
+
+            silent (`bool`, optional):
+                If `True`, forwards messages silently (no notification).
+
+            noforwards (`bool`, optional):
+                *Bots only*. Prevents the messages from being forwarded or saved by users.
+
+            background (`bool`, optional):
+                If `True`, forwards the messages in the background.
+            
+            with_my_score (`bool`, optional):
+                If `True`, includes your score when forwarding games.
+
+            drop_author (`bool`, optional):
+                If `True`, forwards messages without quoting the original author.
+
+            drop_media_captions (`bool`, optional):
+                If `True`, strips captions from media.
+
+            allow_paid_floodskip (`bool`, optional):
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                Only successfully delivered messages are charged.
+
+            top_msg_id (`int`, optional):
+                The message id of the topic. Messages will be forwarded to this topic.
+                If not set, messages are sent to the general topic.
+
+            schedule_date (`LikeTime`, optional):
+                The date and time when the messages should be forwarded, if scheduling is desired.
+
+            send_as (`LikeEntity`, optional):
+                The entity to send the messages as.
+
+            quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional):
+                Adds the messages to a quick reply shortcut by `id`, `name`, or input object.
+
+        Returns:
+            `List[TypeUpdate]`: List of update objects for the forwarded messages.
+
+        Example:
+        ```python
+        # Forward a single message
+        update = await client.send_text('source_chat', 'Hello!')
+        await client.forward_messages(
+            update.message.peer_id,
+            'source_chat',
+            update.message
+        )
+
+        # Forward with options
+        await client.forward_messages(
+            update.message.peer_id,
+            'source_chat',
+            update.message,
+            drop_author=True
+        )
+
+        # Forward multiple messages ids
+        await client.forward_messages(
+            'source_chat',
+            'source_chat'
+            [123, 124, 125]
+        )
+
+        ```
+        """
+
+        # normalize messages to list of IDs
+        is_single = not is_like_list(messages)
+        if is_single:
+            messages = [messages]
+
+        ids = []
+        video_timestamp = None
+        for index, msg in enumerate(messages):
+            if isinstance(msg, int):
+                ids.append(msg)
+            
+            elif isinstance(msg, types.Message):
+                ids.append(msg.id)
+
+                if is_single and isinstance(
+                    msg.media,
+                    types.MessageMediaDocument
+                ):
+                    video_timestamp = msg.media.video_timestamp
+
+            else:
+                if is_single:
+                    raise TypeError(
+                        "Expected 'messages' to be a "
+                        "msg_id (int) or types.Message, or list of these, "
+                        f"not {type(msg).__name__}."
+                    )
+
+                raise TypeError(
+                    f'Invalid item at index {index}: '
+                    f'Expected a msg_id (int) or types.Message, not {type(msg).__name__}'
+                )
+
+        if not ids:
+            raise ValueError(
+                'You must provide at least one message.'
+            )
+
+        # Handle quick reply shortcut
+        if quick_reply is not None:
+            if isinstance(quick_reply, str):
+                quick_reply = types.InputQuickReplyShortcut(
+                    shortcut=quick_reply
+                )
+
+            elif isinstance(quick_reply, int):
+                quick_reply = types.InputQuickReplyShortcutId(
+                    shortcut_id=quick_reply
+                )
+
+        # Get input peers
+        input_peer_to = await self.get_input_peer(target)
+        input_peer_from = await self.get_input_peer(source)
+
+        if send_as is not None:
+            send_as = await self.get_input_peer(send_as)
+
+        request = functions.messages.ForwardMessages(
+            from_peer=input_peer_from,
+            id=ids,
+            to_peer=input_peer_to,
+            silent=silent,
+            background=background,
+            with_my_score=with_my_score,
+            drop_author=drop_author,
+            drop_media_captions=drop_media_captions,
+            noforwards=noforwards,
+            allow_paid_floodskip=allow_paid_floodskip,
+            top_msg_id=top_msg_id,
+            schedule_date=(
+                None
+                if schedule_date is None else
+                to_timestamp(schedule_date)
+            ),
+            send_as=send_as,
+            quick_reply_shortcut=quick_reply,
+            video_timestamp=video_timestamp
+        )
+
+        return await self._invoke_wait_updates(request, input_peer_to)
+
+    async def get_input_media(
+        self: 'Telegram',
+        media: LikeInputMedia,
+        *,
+        ttl: t.Optional[alias.LikeTime] = None,
+        spoiler: bool = False,
+        force_file: bool = False,
+        nosound_video: bool = False,
+        thumb: t.Optional[LikeInputFile] = None,
+        video_cover: types.TypeInputPhoto = None,
+        stickers=None,
+        attributes=None
+    ):
+
+        async def get_uploaded_file(obj: LikeInputFile):
+            if isinstance(obj, alias.LikeFile):
+                return await self.upload(obj)
+
+            if isinstance(obj, Uploader):
+                return await obj
+
+            return obj
+
+        uploaded = await get_uploaded_file(media)
+        input_media = helpers.cast_to_input_media(uploaded, force_file)
+
+
+        _ttl_seconds = (
+            0
+            if ttl is None else
+            time_difference(ttl)
+        )
+        if _ttl_seconds <= 0:
+            _ttl_seconds = None
+
+        if thumb is not None:
+            if not isinstance(
+                input_media,
+                types.InputMediaUploadedDocument
+            ):
+                raise ValueError(
+                    f"{type(input_media).__name__!r} does not support 'thumb'."
+                )
+
+            input_media.thumb = await get_uploaded_file(thumb)
+
+        if isinstance(input_media, types.InputMediaUploadedDocument):
+            if attributes is not None:
+                input_media.attributes.extend(attributes)
+
+        return input_media.replace(
+            spoiler=spoiler,
+            force_file=force_file,
+            ttl_seconds=_ttl_seconds,
+            nosound_video=nosound_video,
+            stickers=(
+                None
+                if stickers is None else
+                [helpers.cast_input_document(s) for s in stickers]
+            ),
+            video_cover=(
+                None
+                if video_cover is None else
+                helpers.cast_to_input_photo(video_cover)
+            ) 
+        )
+
+    async def get_input_reply(
+        self: 'Telegram',
+        msg: t.Optional[TypeReply] = None,
+        entity: t.Optional[alias.LikeEntity] = None,
+        story_id: t.Optional[int] = None,
+        top_msg_id: t.Optional[int] = None
+    ):
+        peer_id = (
+            None
+            if entity is None else
+            await self.get_entity(entity)
+        )
+
+        msg = helpers._unwrap_message(msg)
+        if msg is not None:
+            msg_id = None
+            topic_id = None
+
+            if isinstance(msg, int):
+                msg_id = msg
+
+            elif isinstance(msg, types.Message):
+                msg_id = msg.id
+                if (
+                    isinstance(msg.reply_to, types.MessageReplyHeader)
+                    and msg.reply_to.forum_topic
+                ):
+                    topic_id = (
+                        msg.reply_to.reply_to_top_id
+                        or
+                        msg.reply_to.reply_to_msg_id
+                    )
+
+            else:
+                raise TypeError(
+                    f"'msg' should be a msg_id or types.Message, not {type(msg).__name__}"
+                )
+
+            return types.InputReplyToMessage(
+                msg_id,
+                top_msg_id=top_msg_id or topic_id,
+                reply_to_peer_id=peer_id
+            )
+
+        if story_id:
+            if not isinstance(story_id, int):
+                raise TypeError(
+                    f"'story_id' should be an int, not {type(story_id).__name__}"
+                )
+
+            if peer_id is None:
+                raise ValueError("To reply to a story, you need to provide 'entity'.")
+
+            return types.InputReplyToStory(
+                peer_id,
+                story_id=story_id
+            )
+
+        raise ValueError("You must provide either 'story_id' or 'msg'.")
+
+    # privates
+    async def _invoke_wait_updates(
+        self: 'Telegram',
+        request,
+        peer_id: types.TypeInputPeer,
+        *,
+        timeout: t.Optional[float] = None
+    ) -> t.Union[types.TypeUpdate, t.List[types.TypeUpdate]]:
+        
+        peer_id = helpers.get_peer_id(peer_id)
+
+        futures = []
+        random_ids = []
+        message_ids = []
+        if hasattr(request, 'random_id'):
+            is_single = not is_like_list(request.random_id)
+            random_ids = (
+                [request.random_id]
+                if is_single else 
+                request.random_id
+            )
+
+            for random_id in random_ids:
+                future = self._update_tracker.add_random(
+                    random_id,
+                    peer_id=peer_id
+                )
+                futures.append(future)
+
+        else:
+            is_single = True
+            message_ids = [request.id]
+
+            future = self._update_tracker.add_message(
+                request.id,
+                peer_id=peer_id
+            )
+            
+            futures.append(future)
+
+        try:
+            result = await self(request)
+
+            response = await asyncio.wait_for(
+                asyncio.gather(*futures),
+                timeout
+            )
+            
+            return response[0] if is_single else list(response)
+
+        except asyncio.TimeoutError:
+            return result
+
+        finally:
+            for random_id in random_ids:
+                self._update_tracker.pop_random(random_id)
+
+            for message_id in message_ids:
+                self._update_tracker.pop_message(message_id, peer_id)
     
+    # helper
     @staticmethod
     def parse_message_text(
         message: str,
@@ -825,151 +1194,3 @@ class Messages:
                 entities.append(item)
 
         return text, entities
-
-    async def get_input_media(
-        self: 'Telegram',
-        media: LikeInputMedia,
-        *,
-        ttl: t.Optional[alias.LikeTime] = None,
-        spoiler: bool = False,
-        force_file: bool = False,
-        nosound_video: bool = False,
-        thumb: t.Optional[LikeInputFile] = None,
-        video_cover: types.TypeInputPhoto = None,
-        stickers=None,
-        attributes=None
-    ):
-
-        async def get_uploaded_file(obj: LikeInputFile):
-            if isinstance(obj, alias.LikeFile):
-                return await self.upload(obj)
-
-            if isinstance(obj, Uploader):
-                return await obj
-
-            return obj
-
-        uploaded = await get_uploaded_file(media)
-        input_media = helpers.cast_to_input_media(uploaded, force_file)
-
-
-        _ttl_seconds = (
-            0
-            if ttl is None else
-            time_difference(ttl)
-        )
-        if _ttl_seconds <= 0:
-            _ttl_seconds = None
-
-        if thumb is not None:
-            if not isinstance(
-                input_media,
-                types.InputMediaUploadedDocument
-            ):
-                raise ValueError(
-                    f"{type(input_media).__name__!r} does not support 'thumb'."
-                )
-
-            input_media.thumb = await get_uploaded_file(thumb)
-
-        if isinstance(input_media, types.InputMediaUploadedDocument):
-            if attributes is not None:
-                input_media.attributes.extend(attributes)
-
-        return input_media.replace(
-            spoiler=spoiler,
-            force_file=force_file,
-            ttl_seconds=_ttl_seconds,
-            nosound_video=nosound_video,
-            stickers=(
-                None
-                if stickers is None else
-                [helpers.cast_input_document(s) for s in stickers]
-            ),
-            video_cover=(
-                None
-                if video_cover is None else
-                helpers.cast_to_input_photo(video_cover)
-            ) 
-        )
-
-    async def get_input_reply(
-        self: 'Telegram',
-        msg: t.Optional[TypeReply] = None,
-        entity: t.Optional[alias.LikeEntity] = None,
-        story_id: t.Optional[int] = None,
-        top_msg_id: t.Optional[int] = None
-    ):
-        peer_id = (
-            None
-            if entity is None else
-            await self.get_entity(entity)
-        )
-
-        msg = helpers._unwrap_message(msg)
-        if msg is not None:
-            msg_id = None
-            topic_id = None
-
-            if isinstance(msg, int):
-                msg_id = msg
-
-            elif isinstance(msg, types.Message):
-                msg_id = msg.id
-                if (
-                    isinstance(msg.reply_to, types.MessageReplyHeader)
-                    and msg.reply_to.forum_topic
-                ):
-                    topic_id = (
-                        msg.reply_to.reply_to_top_id
-                        or
-                        msg.reply_to.reply_to_msg_id
-                    )
-
-            else:
-                raise TypeError(
-                    f"'msg' should be a msg_id or types.Message, not {type(msg).__name__}"
-                )
-
-            return types.InputReplyToMessage(
-                msg_id,
-                top_msg_id=top_msg_id or topic_id,
-                reply_to_peer_id=peer_id
-            )
-
-        if story_id:
-            if not isinstance(story_id, int):
-                raise TypeError(
-                    f"'story_id' should be an int, not {type(story_id).__name__}"
-                )
-
-            if peer_id is None:
-                raise ValueError("To reply to a story, you need to provide 'entity'.")
-
-            return types.InputReplyToStory(
-                peer_id,
-                story_id=story_id
-            )
-
-        raise ValueError("You must provide either 'story_id' or 'msg'.")
-
-    # privates
-    async def _invoke_wait_update(
-        self: 'Telegram',
-        request,
-        timeout: t.Optional[float] = None
-    ) -> types.TypeUpdate:
-        future = self._update_tracker.add_random(
-            request.random_id,
-            peer_id=helpers.get_peer_id(request.peer)
-        )
-
-        try:
-            result = await self(request)
-            return await asyncio.wait_for(future, timeout)
-
-        except asyncio.TimeoutError:
-            return result
-
-        finally:
-            self._update_tracker.pop_random(request.random_id)

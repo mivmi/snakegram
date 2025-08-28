@@ -16,7 +16,7 @@ PUBLIC_KEY_MAP: t.Dict[int, PublicKey] = {}
 
 def add_public_key(data: str):
     public_key = PublicKey(data)
-    PUBLIC_KEY_MAP[public_key.get_fingerprint()] = public_key
+    PUBLIC_KEY_MAP[public_key.fingerprint] = public_key
 
     return public_key
 

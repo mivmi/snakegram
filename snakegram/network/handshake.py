@@ -102,18 +102,21 @@ class Handshake:
             else:
                 logger.info('using valid temp auth key')
 
+        # if no valid server salt is available,
+        # wait for `NewSessionCreated` to provide one.
         now = self.state.server_time()
-        created_at = self.state.active_session.created_at
+        if self.state.session.get_server_salt(now) == 0:
+            logger.debug(
+                'no valid server salt found. waiting for "NewSessionCreated" ...'
+            )
 
-        if (
-            not created_at
-            or (now - created_at) > 30 * 60
-        ):
             try:
                 await self.state.wait_for_new_session(TIMEOUT)
 
             except asyncio.TimeoutError:
-                pass
+                logger.warning(
+                    'wait for "NewSessionCreated" timed out. continuing without server salt'
+                )
 
         self.state.complete_handshake()
 
@@ -355,7 +358,7 @@ class Handshake:
                         hash=True
                     )
 
-                except errors.SecurityError:
+                except ValueError:
                     logger.exception('Failed to generate auth key: answer_hash != sha1(answer)')
                     raise
                 

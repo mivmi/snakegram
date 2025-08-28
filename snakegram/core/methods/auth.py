@@ -18,22 +18,22 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # type aliases
-Password: t.TypeAlias = t.Union[
+LikePassword = t.Union[
     str,
     bytes,
     types.TypeInputCheckPasswordSRP
 ]
 
-CodeCallback: t.TypeAlias = t.Callable[
+CodeCallback = t.Callable[
     [types.auth.SentCode], t.Union[str]
 ]
 
-PasswordOrCallback: t.TypeAlias = t.Union[
-    Password,  # string/bytes/SRP
-    t.Callable[[types.account.Password], Password]
+PasswordOrCallback = t.Union[
+    LikePassword,  # string/bytes/SRP
+    t.Callable[[types.account.Password], LikePassword]
 ]
 
-PhoneOrTokenOrCallback: t.TypeAlias = t.Union[
+PhoneOrTokenOrCallback = t.Union[
     alias.PhoneOrToken,
     t.Callable[[], alias.PhoneOrToken]
 ]
@@ -194,7 +194,7 @@ class Auth:
 
         if not (
             callable(password)
-            or isinstance(password, Password)
+            or isinstance(password, str)
         ):
             if password is None:
                 password = lambda p: getpass(f'2FA Password ({p.hint!r}): ')
@@ -275,7 +275,7 @@ class Auth:
                         if not is_fixed_password:
                             raw_password = password(account_password)
 
-                            if not isinstance(raw_password, Password):
+                            if not isinstance(raw_password, str):
                                 raise errors.PasswordHashInvalidError(None)
 
                         else:
@@ -500,7 +500,7 @@ class Auth:
         phone_or_token: alias.PhoneOrToken,   
         *,
         code: t.Optional[str] = None,
-        password: t.Optional[Password] = None,
+        password: t.Optional[LikePassword] = None,
         code_settings: types.CodeSettings = types.CodeSettings(),
         phone_code_hash: t.Optional[str] = None,
         email_verification: t.Optional[types.TypeEmailVerification] = None

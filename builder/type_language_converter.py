@@ -6,6 +6,7 @@
 import re
 import os
 import ast
+import sys
 import builtins
 import typing as t
 from zlib import crc32
@@ -522,14 +523,30 @@ def create_class(
 
         else:
             # check types is Union
-            types = ast.parse(types, mode='eval').body
+            node = ast.parse(types, mode='eval').body
 
-            if isinstance(types, ast.Name):
-                types = [types.id]
+            if isinstance(node, ast.Name):
+                types = [node.id]
                 module.add_import('Union', module='typing')
-    
+
+            elif isinstance(node, ast.Subscript):
+                slice_value = node.slice
+
+                # python <= 3.8 wraps the slice in ast.Index, removed in 3.9 <= python
+                if (
+                    sys.version_info < (3, 9)
+                    and isinstance(slice_value, ast.Index)
+                ):
+                    slice_value = slice_value.value
+
+                if isinstance(slice_value, ast.Tuple):
+                    types = [e.id for e in slice_value.elts]
+
+                else:
+                    types = [slice_value.id] # single
+
             else:
-                types = [e.id for e in types.slice.elts]
+                types = []
 
             fmt = utils.PyFormatter('Union')
             fmt.shaper(*types, name, open='[', close=']')

@@ -113,7 +113,7 @@ class dualmethod(t.Generic[P_1, T_1]):
     ```
     """
 
-    def __init__(self, fn: te.Callable[t.Concatenate[object, P_1], T_1]):
+    def __init__(self, fn: te.Callable[te.Concatenate[object, P_1], T_1]):
         self.fn = fn
 
     def __call__(self, *args: P_1.args, **kwargs: P_1.kwargs) -> T_1:
@@ -321,7 +321,7 @@ def split_list(seq: t.List[T_1], size: int):
     for i in range(0, len(seq), size):
         yield seq[i:i + size]
 
-def is_like_list(obj) -> t.TypeGuard[t.Iterable[T_1]]:
+def is_like_list(obj) -> te.TypeGuard[t.Iterable[T_1]]:
     """Return True if the object is iterable and not str, bytes, or bytearray."""
     return (
         hasattr(obj, '__iter__')
@@ -446,7 +446,7 @@ def adaptive(
 
 def is_async(
     obj: t.Callable[P_1, T_1]
-) -> t.TypeGuard[t.Callable[P_1, t.Awaitable[T_1]]]:
+) -> te.TypeGuard[t.Callable[P_1, t.Awaitable[T_1]]]:
     """
     Return True if the object is a coroutine function.
     """

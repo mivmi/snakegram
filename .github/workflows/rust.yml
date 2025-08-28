@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
   MACOSX_DEPLOYMENT_TARGET: "14.5"
@@ -13,6 +16,7 @@ jobs:
   build:
     strategy:
       matrix:
+        python: [3.11]
         include:
           - os: ubuntu-latest
             arch: x86_64
@@ -37,12 +41,29 @@ jobs:
       - name: Build for ${{ matrix.os }} ${{ matrix.arch }}
         run: cargo build --release
 
-      - name: List build artifacts
-        run: ls -l target/release/
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
 
-      - name: Upload artifact
+      - name: Build wheel with maturin-action
+        uses: PyO3/maturin-action@v1.43.0
+        with:
+          command: build
+          args: --release --out dist
+          manylinux: auto
+          sccache: true 
+
+      - name: Create ./root/extensions and copy wheels
+        run: |
+          mkdir -p ./root/extensions
+          cp dist/*.whl ./root/extensions/ || (echo "No wheel files found in dist/" && exit 1)
+          echo "Wheels copied:"
+          ls -l ./root/extensions
+
+      - name: Upload wheels as workflow artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }}-${{ matrix.arch }}
-          path: |
-            ${{ runner.os == 'Windows' && 'target/release/snakegram-rust.dll' || 'target/release/libsnakegram-rust*' }}
+          name: pyo3-wheels-${{ matrix.python }}
+          path: ./root/extensions/*.whl

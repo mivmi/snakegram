@@ -1,7 +1,5 @@
 // custom
 message msg_id:long seqno:int bytes:int body:Object = Message;
-rsa_public_key n:string e:string = RsaPublicKey;
-
 
 // https://core.telegram.org/schema/mtproto
 

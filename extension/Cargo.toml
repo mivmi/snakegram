@@ -1,0 +1,17 @@
+[lib]
+name = "snakegram_rust"
+crate-type = ["cdylib"]
+
+[package]
+name = "snakegram-rust"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+
+[dependencies]
+pyo3 = { workspace = true, features = ["extension-module"] }
+crypto = { path = "crypto" }

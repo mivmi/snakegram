@@ -1,7 +1,8 @@
 # https://core.telegram.org/api/srp#checking-the-password-with-srp
 
 import typing as t
-from .utils import xor, sha256, is_safe_prime, pbkdf2_sha512_hmac
+from hashlib import sha256, pbkdf2_hmac
+from .utils import xor, is_safe_prime
 
 from ..tl import types
 from ..gadgets.byteutils import bytes_to_long, big_integer_bytes, Int256
@@ -13,13 +14,13 @@ def get_password_hash(
     my_password: t.Union[str, bytes]
 ):
     def sh(data: bytes, salt: bytes) -> bytes:
-        return sha256(salt + data + salt)
+        return sha256(salt + data + salt).digest()
 
     if isinstance(my_password, str):
         my_password = my_password.encode('utf-8')
 
     ph1 = sh(sh(my_password, salt1), salt2)
-    pbkdf2_result = pbkdf2_sha512_hmac(ph1, salt1)
+    pbkdf2_result = pbkdf2_hmac('sha512', ph1, salt1, 100000)
 
     return sh(pbkdf2_result, salt2)
 
@@ -66,7 +67,7 @@ def get_check_password_srp(
     g_bytes = big_integer_bytes(algorithm.g)
 
 
-    k_bytes = sha256(algorithm.p + g_bytes)
+    k_bytes = sha256(algorithm.p + g_bytes).digest()
     k = bytes_to_long(k_bytes)
 
     x_bytes = get_password_hash(
@@ -83,7 +84,7 @@ def get_check_password_srp(
     a2_bytes = big_integer_bytes(a2)
     
 
-    u_bytes = sha256(a2_bytes + srp_b)
+    u_bytes = sha256(a2_bytes + srp_b).digest()
     u = bytes_to_long(u_bytes)
     
     if u == 0:
@@ -101,19 +102,19 @@ def get_check_password_srp(
     s = pow(b_kgx, a + u * x, p_int)
     s_bytes = big_integer_bytes(s)
     
-    k2_bytes = sha256(s_bytes)
+    k2_bytes = sha256(s_bytes).digest()
 
-    g_hash = sha256(g_bytes)
-    p_hash = xor(g_hash, sha256(algorithm.p))
+    g_hash = sha256(g_bytes).digest()
+    p_hash = xor(g_hash, sha256(algorithm.p).digest())
     
     m1 = sha256(
         p_hash
-        + sha256(algorithm.salt1)
-        + sha256(algorithm.salt2)
+        + sha256(algorithm.salt1).digest()
+        + sha256(algorithm.salt2).digest()
         + a2_bytes
         + b_bytes
         + k2_bytes
-    )
+    ).digest()
 
     # return a2_bytes, m1
     return types.InputCheckPasswordSRP(srp_id, a2_bytes, m1)

@@ -7,10 +7,10 @@ from pathlib import Path
 from collections import deque
 
 from ... import alias, errors
-from ...crypto import utils, aes_ctr256_decrypt, aes_ige256_decrypt
+from ...crypto import utils, aes_ctr256, aes_ige256_decrypt
 
 from ...tl import types, functions
-from ...gadgets.utils import env, to_async
+from ...gadgets.utils import env
 from ...gadgets.byteutils import Int
 
 if t.TYPE_CHECKING:
@@ -197,7 +197,7 @@ class Downloader:
 
     async def _apply(self, chunk: bytes):
         if self._key and self._iv:
-            chunk = await to_async(aes_ige256_decrypt)(
+            chunk = aes_ige256_decrypt(
                 chunk,
                 self._key,
                 self._iv
@@ -360,7 +360,7 @@ class Downloader:
             self._hashes.extend(file_hashes)
             return await self._get_cdn_next_chunk()
 
-        chunk = await to_async(aes_ctr256_decrypt)(
+        chunk = aes_ctr256(
             result.bytes,
             key=self._cdn_encryption_key,
             nonce=(

@@ -1,12 +1,15 @@
 [build-system]
-requires = ["setuptools"]
+requires = [
+    "maturin>=1.8.6,<2",
+    "cffi>=1.14; platform_python_implementation != 'PyPy'"
+]
 backend-path = ["."]
 build-backend = "backend"
 
 
 [project]
 name = "snakegram"
-dynamic = ["version"]
+version = "1.0.0.dev1"
 
 authors = [
     { name = "Milad" }
@@ -25,7 +28,6 @@ classifiers = [
     "Topic :: Communications :: Chat",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -36,23 +38,21 @@ classifiers = [
 ]
 
 dependencies = [
-    "cryptography>=44",
     "typing_extensions>=4.12"
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
+
+#
+[tool.maturin]
+locked = true
+module-name = "snakegram._rust"
+manifest-path = "extension/Cargo.toml"
+python-packages = ["snakegram"]
 
 
 [project.urls]
 source = "https://github.com/mivmi/snakegram"
 issues = "https://github.com/mivmi/snakegram/issues"
-
-[tool.setuptools.packages.find]
-where = ['.']
-include = ['snakegram*']
-
-
-[tool.setuptools.dynamic]
-version = {attr = "snakegram.about.__version__"}
 
 
 [project.optional-dependencies]

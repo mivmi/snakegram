@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "extension/",
+    "extension/crypto"
+]
+resolver = "2"
+
+[workspace.dependencies]
+pyo3 = { version = "0.25", features = ["abi3"] }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Milad <https://github.com/mivmi>"]
+publish = false
+rust-version = "1.85.0"
+
+[profile.release]
+opt-level = 3
+overflow-checks = true

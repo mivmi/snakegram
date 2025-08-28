@@ -1,12 +1,13 @@
 import asyncio
 import logging
 import typing as t
+from hashlib import sha1
 from random import getrandbits
 
 from .. import errors, crypto
 from ..tl import mtproto, functions
 from .message import RawMessage, EncryptedMessage
-from ..gadgets.utils import env, retry, to_async
+from ..gadgets.utils import env, retry
 
 from ..gadgets.byteutils import Reader, Long, Int128, Int256, bytes_to_long, long_to_bytes
 from ..session.abstract import AbstractSession, AbstractPfsSession
@@ -159,7 +160,7 @@ class Handshake:
             perm_key.fingerprint,
             nonce=nonce,
             expires_at=expires_at,
-            encrypted_message=await to_async(perm_key.encrypt)(
+            encrypted_message=perm_key.encrypt(
                 factory.to_bytes(),
                 version=1  # v1
             )
@@ -248,7 +249,7 @@ class Handshake:
                 logger.debug('Auth key generation: step [%d]', 3)
                 
                 pq = result.pq
-                p, q = await to_async(crypto.utils.pq_factorize)(pq)
+                p, q = crypto.utils.pq_factorize(pq)
                 
                 if len(p + q) != 8:
                     raise ValueError(
@@ -301,11 +302,10 @@ class Handshake:
                 # https://core.telegram.org/mtproto/auth_key#41-rsa-paddata-server-public-key-mentioned-above-is-implemented-as-follows
                 logger.debug('Auth key generation: step [%d]', 4.1)
                 
-                encrypted_data = (
-                    await to_async(public_key.encrypt_with_pad)
-                    (inner_data.to_bytes())
+                encrypted_data = public_key.encrypt(
+                    inner_data.to_bytes()
                 )
-                
+
                 logger.debug('Auth key generation: encrypted_data length %d', len(encrypted_data))
 
                 # https://core.telegram.org/mtproto/auth_key#5-send-req-dh-params-query-with-generated-encrypted-data
@@ -338,9 +338,9 @@ class Handshake:
                 # term2: byte server_nonce
                 # tmp_aes_key: SHA1(term1 + term2) + substr (SHA1(term2 + term1), 0, 12);
                 # tmp_aes_iv: substr (SHA1(term2 + term1), 12, 8) + SHA1(term1 + term1) + substr (term1, 0, 4);
-                nn_hash = crypto.utils.sha1(term1 + term1)
-                ns_hash = crypto.utils.sha1(term1 + term2)
-                sn_hash = crypto.utils.sha1(term2 + term1)
+                nn_hash = sha1(term1 + term1).digest()
+                ns_hash = sha1(term1 + term2).digest()
+                sn_hash = sha1(term2 + term1).digest()
 
                 aes_ige_key, aes_ige_iv = (
                     ns_hash + sn_hash[:12],
@@ -348,10 +348,11 @@ class Handshake:
                 )
                 
                 try:
-                    answer = await to_async(crypto.aes_ige256_decrypt_with_hash)(
+                    answer = crypto.aes_ige256_decrypt(
                         result.encrypted_answer,
                         key=aes_ige_key,
-                        iv=aes_ige_iv
+                        iv=aes_ige_iv,
+                        hash=True
                     )
 
                 except errors.SecurityError:
@@ -405,10 +406,11 @@ class Handshake:
                 logger.debug('Auth key generation: client_dh_inner=%r', client_dh_inner)
 
 
-                encrypted_data = await to_async(crypto.aes_ige256_encrypt_with_hash)(
+                encrypted_data = crypto.aes_ige256_encrypt(
                     client_dh_inner.to_bytes(),
                     key=aes_ige_key,
-                    iv=aes_ige_iv
+                    iv=aes_ige_iv,
+                    hash=True
                 )
                 
                 # https://core.telegram.org/mtproto/auth_key#8-thereafter-auth-key-equals-powg-ab-mod-dh-prime-on-the-server-it-is-computed-as-powg-b-a-mod-dh-prime-and-on-the-client-as-g-ab-mod-dh-prime
@@ -447,11 +449,11 @@ class Handshake:
                         nonce_number = index.to_bytes(1, 'little')
                         break
 
-                nonce_hash = crypto.utils.sha1(
-                    term1
-                    + nonce_number
-                    + auth_key.get_aux_hash()
-                )
+                nonce_hash = sha1(
+                        term1
+                        + nonce_number
+                        + auth_key.get_aux_hash()
+                    ).digest()
                 nonce_hash = Int128.from_bytes(nonce_hash[4:])
 
                 new_nonce_hash = getattr(result, nonce_name)

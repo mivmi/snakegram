@@ -942,6 +942,11 @@ class MediaConnection(Connection):
         if self._active_session <= 0:
             self._active_session = 0
             self._disconnect_timer.start()
+        
+    async def migrate(self, dc_id, *, exception=None):
+        raise RuntimeError(
+            "Media connections cannot be migrated."
+        )
 
     async def connect(self):
         async with self._lock:

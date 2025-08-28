@@ -10,7 +10,7 @@ from pathlib import Path
 from ... import alias, errors
 from ...tl import types, functions
 from ...crypto import utils, aes_ige256_encrypt
-from ...gadgets.utils import env, to_async
+from ...gadgets.utils import env
 from ...gadgets.byteutils import Long
 
 if t.TYPE_CHECKING:
@@ -251,7 +251,7 @@ class Uploader:
         is_encrypted_file = bool(self._key and self._iv)
     
         if chunk and is_encrypted_file:
-            chunk = await to_async(aes_ige256_encrypt)(
+            chunk = aes_ige256_encrypt(
                 chunk,
                 key=self._key,
                 iv=self._iv

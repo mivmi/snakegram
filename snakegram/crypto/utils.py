@@ -1,11 +1,8 @@
-from math import gcd
+from hashlib import md5
 from functools import lru_cache
-from random import randrange, randint
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-from ..gadgets.byteutils import Int, long_to_bytes, bytes_to_long
+from .._rust import crypto
+from ..gadgets.byteutils import Int, bytes_to_long, long_to_bytes
 
 
 def xor(term1: bytes, term2: bytes) -> bytes:
@@ -23,75 +20,13 @@ def xor(term1: bytes, term2: bytes) -> bytes:
 
     return bytes([x ^ y for x, y in zip(term1, term2)])
 
-def md5(data: bytes) -> bytes:
-    """computes the `MD5` hash of the given data"""
-    digit = hashes.Hash(hashes.MD5())
-    digit.update(data)
-    return digit.finalize()
 
-def sha1(data: bytes) -> bytes:
-    """computes the `SHA-1` hash of the given data."""
-
-    digit = hashes.Hash(hashes.SHA1())
-    digit.update(data)
-    return digit.finalize()
-
-
-def sha256(data: bytes) -> bytes:
-    """Computes the `SHA-256` hash of the given data."""
-    digit = hashes.Hash(hashes.SHA256())
-    digit.update(data)
-    return digit.finalize()
-
-def pbkdf2_sha512_hmac(
-    password: bytes,
-    salt: bytes,
-    iterations: int = 100_000
-) -> bytes:
-    """Computes a `512-bit` key using `PBKDF2` with `HMAC-SHA512`"""
-    kdf = PBKDF2HMAC(
-        hashes.SHA512(),
-        salt=salt,
-        length=64, # 512 // 8
-        iterations=iterations
-    )
-    return kdf.derive(password)
-
-def is_prime(n: int, trials: int = 16) -> bool:
+def is_prime(n: int, trials: int = 8) -> bool:
     """Tests if a number is prime (Rabin Miller)."""
-
-    if n <= 1:
-        return False
-    if n <= 3:
-        return True
-    if n % 2 == 0:
-        return False
-
-    # n - 1 as 2^r * d
-    r, d = 0, n - 1
-    while d % 2 == 0:
-        d //= 2
-        r += 1
-
-    for _ in range(trials):
-        a = randrange(2, n - 2)
-        x = pow(a, d, n)
-
-        if x == 1 or x == n - 1:
-            continue
-
-        for _ in range(r - 1):
-            x = pow(x, 2, n)
-            if x == n - 1:
-                break
-        else:
-            return False  # definitely composite
-
-    return True  # probably prime
+    return crypto.math.is_prime(n, trials)
 
 def is_safe_prime(p: int, g: int) -> bool:
     """Checks whether `p` is a 2048-bit safe prime."""
-
     if (
         p <= 0
         or not 2 <= g <= 7
@@ -129,53 +64,12 @@ def pq_factorize(pq: bytes):
     `p` and `q`, and is typically less than or equal to `2^63 - 1`.
     """
     num = bytes_to_long(pq)
-
-    def brent(value: int):
-
-        if not value & 1:
-            return 2
-
-        if value <= 2 or value > 1 << 63:
-            return 1
-
-        x = ys = 0
-        g = r = q = 1
-        y, c, m = (randint(1, value - 1) for _ in range(3))
-
-        while g == 1:
-            x = y
-            for _ in range(r):
-                y = (pow(y, 2, value) + c) % value
-
-            k = 0
-            while k < r and g == 1:
-                ys = y
-                for _ in range(min(m, r - k)):
-                    y = (pow(y, 2, value) + c) % value
-                    q = q * (abs(x - y)) % value
-
-                k += m
-                g = gcd(q, value)
-
-            r *= 2
-
-        if g == value:
-            while True:
-                ys = (pow(ys, 2, value) + c) % value
-                g = gcd(abs(x - ys), value)
-                if g > 1:
-                    break
-
-        return g
-
-    g = brent(num)
-    p, q = sorted((g, num // g))
+    p, q = crypto.math.factorization(num)
     return long_to_bytes(p), long_to_bytes(q)
-
 
 # https://core.telegram.org/api/end-to-end#sending-encrypted-files
 def get_key_fingerprint(key: bytes, iv: bytes):
-    digest = md5(key + iv)
+    digest = md5(key + iv).digest()
 
     # fingerprint = substr(digest, 0, 4) XOR substr(digest, 4, 4)
     fingerprint = xor(digest[:4], digest[4: 4 + 4])

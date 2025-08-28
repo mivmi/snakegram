@@ -40,7 +40,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python
+      - name: Setup Python ${{ matrix.python }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -49,20 +49,12 @@ jobs:
         uses: PyO3/maturin-action@v1.43.0
         with:
           command: build
-          args: --release --out dist
+          args: --release --out extensions
           manylinux: auto
-          sccache: true 
+          sccache: true
 
-      - name: Create ./root/extensions and copy wheels
-        run: |
-          mkdir -p ./root/extensions
-          cp dist/*.whl ./root/extensions/ || (echo "No wheel files found in dist/" && exit 1)
-          echo "Wheels copied:"
-          ls -l ./root/extensions
-
-      - name: Upload wheels as workflow artifact
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: GitHub Commit & Push
+        uses: actions-js/push@v1.5
         with:
-          name: pyo3-wheels-${{ matrix.python }}
-          path: ./root/extensions/*.whl
+          message: "Update Layer & TL Documentation"
+          github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -45,4 +45,4 @@ jobs:
         with:
           name: ${{ runner.os }}-${{ matrix.arch }}
           path: |
-            ${{ runner.os == 'Windows' && 'target/release/tgcrypto.dll' || 'target/release/libtgcrypto*' }}
+            ${{ runner.os == 'Windows' && 'target/release/snakegram-rust.dll' || 'target/release/libsnakegram-rust*' }}

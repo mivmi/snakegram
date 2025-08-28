@@ -35,18 +35,17 @@ jobs:
             # target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Build for ${{ matrix.os }} ${{ matrix.arch }}
-        run: cargo build --release
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Build wheel with maturin-action
+      - name: Build wheel with maturin-action for ${{ matrix.os }} ${{ matrix.arch }}
         uses: PyO3/maturin-action@v1.43.0
         with:
           command: build

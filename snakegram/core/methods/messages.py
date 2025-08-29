@@ -50,15 +50,15 @@ class Messages:
         entities: t.List[types.TypeMessageEntity] = None,
         parse_mode: alias.ParseMode = None,
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
-        reply_markup: t.Optional[types.TypeReplyMarkup] = None        
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None
     ) -> types.TypeUpdate:
         """
         Sends a text message to the specified `user`, `chat`, or `channel`.
-        
+
         Args:
             target (`LikeEntity`):
                 The `user` or `chat` to whom the message will be sent.
-            
+
             message (`str` | `types.Message`):
                 The text to send, or `types.Message` object to reuse its content.
 
@@ -70,37 +70,37 @@ class Messages:
 
             send_as (`LikeEntity`, optional):
                 The entity to send the message as.
-            
+
             schedule_date (`LikeTime`, optional):
                 The date and time when the message should be sent, if scheduling is desired.
-            
+
             silent (`bool`, optional):
                 If `True`, the message will be sent silently (no notification).
-            
+
             noforwards (`bool`, optional):
                 *Bots only*. Prevents the message from being forwarded or saved by users.
-            
+
             background (`bool`, optional):
                 If `True`, sends the message in the background.
 
             no_webpage (`bool`, optional):
                 If `True`, disables webpage preview.
-            
+
             clear_draft (`bool`, optional):
                 If `True`, clears existing draft message in the target chat.
-            
+
             invert_media (`bool`, optional):
                 If `True`, places the link preview above the message instead of below.
-            
+
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
                 Only successfully delivered messages are charged.
 
             update_stickersets_order (`bool`, optional):
                 If `True`, moves the used stickerset to the top.
-            
+
             effect (`int`, optional):
                 Specifies a message effect to use for the message.
                 To get the list of available effects, use the function `messages.GetAvailableEffects`.
@@ -108,17 +108,17 @@ class Messages:
             entities (`List[MessageEntity]`, optional):
                 List of message formatting `entities`.
                 If provided, parsing will be skipped and the message will be formatted directly using this list.
-            
+
             parse_mode (`str`, optional):
                 Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
                 Defaults to the client's global parse mode.
-            
+
             quick_reply (`str` | `int` | `TypeInputQuickReplyShortcut`, optional)
                 Adds the message to a quick reply shortcut by `id`, `name`, or input object.
-            
+
             reply_markup (`ReplyMarkup`, optional):
                 *Bot only*. Markup for attaching reply buttons (`inline`, `keyboard`, etc.) to the message.
-                
+
         Example:
         ```python
             await client.send_text('me', 'Hello **World**!')
@@ -170,7 +170,7 @@ class Messages:
                 reply_markup
             )
             message_text = message.message
-        
+
         else:
             message_text = message
 
@@ -183,7 +183,7 @@ class Messages:
         input_peer = await self.get_input_peer(target)
         if send_as is not None:
             send_as = await self.get_input_peer(send_as)
-        
+
         if (
             reply_to
             and not isinstance(reply_to, types.TypeInputReplyTo)
@@ -213,7 +213,7 @@ class Messages:
             effect=effect,
             quick_reply_shortcut=quick_reply
         )
-        
+
         return await self._invoke_wait_updates(request, input_peer)
 
     async def send_media(
@@ -225,7 +225,7 @@ class Messages:
         reply_to: t.Optional[TypeReply] = None,
         send_as: alias.LikeEntity = None,
         schedule_date: alias.LikeTime = None,
-        
+
         silent: bool = False,
         spoiler: bool = False,
         force_file: bool = False,
@@ -247,7 +247,7 @@ class Messages:
 
         parse_mode: alias.ParseMode = None,
         quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None,
-        reply_markup: t.Optional[types.TypeReplyMarkup] = None     
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None
     ):
         """Sends a media message to the specified `user`, `chat`, or `channel`.
 
@@ -258,7 +258,7 @@ class Messages:
             media (`LikeInputFile`):
                 Attached media to send.
                 such as a file path, file-like, `types.TypeInputFile` or `types.TypeInputMedia` object.
-            
+
             message (`str` | `types.Message`):
                 Optional caption for the media.
                 Can be `str` or `types.Message` object to reuse formatting entities.
@@ -268,16 +268,16 @@ class Messages:
                 If an integer is provided, it will be treated as `msg_id`.
                 If `types.Message` is given, the reply will target that message directly.
                 Also, you can pass an instance of `types.InputReplyTo` directly.
-            
+
             send_as (`LikeEntity`, optional):
                 The entity to send the message as.
-            
+
             schedule_date (`LikeTime`, optional):
                 The date and time when the message should be sent, if scheduling is desired.
-            
+
             silent (`bool`, optional):
                 If `True`, the message will be sent silently (no notification).
-            
+
             spoiler (`bool`, optional):
                 If `True`, marks the media as a spoiler (blurred until tapped).
 
@@ -286,29 +286,29 @@ class Messages:
 
             noforwards (`bool`, optional):
                 *Bots only*. Prevents the message from being forwarded or saved by users.
-            
+
             background (`bool`, optional):
                 If `True`, sends the message in the background.
-            
+
             clear_draft (`bool`, optional):
                 If `True`, clears existing draft message in the target chat.
-            
+
             invert_media (`bool`, optional):
                 If `True`, places the media above the message instead of below
-            
+
             nosound_video (`bool`, optional):
                 If `True`, specifies that the attached document is a video file
                 with no audio tracks (for example, a GIF animation, even if encoded as MPEG4).
 
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
                 Only successfully delivered messages are charged.
 
             update_stickersets_order (`bool`, optional):
                 If `True`, moves the used stickerset to the top.
-            
+
             ttl (`LikeTime`, optional):
                 Self destruct timer for the media, in seconds or as date/time.
 
@@ -318,17 +318,17 @@ class Messages:
 
             thumb (`LikeInputFile`, optional):
                 Optional thumbnail for the media.
-            
+
             entities (`List[MessageEntity]`, optional):
                 List of message formatting `entities` for the caption.
                 If provided, parsing will be skipped and the caption will be formatted directly.
-            
+
             stickers (`List[InputDocument]`, optional):
                 Stickers to attach to the media.
-            
+
             attributes (`List[DocumentAttribute]`, optional):
                 Attributes that specify the type of the document (`video`, `audio`, `voice`, `sticker`, etc.).
-            
+
             parse_mode (`str`, optional):
                 Specifies the parsing mode for the caption: `'md'`, `'markdown'`, or `'html'`.
                 Defaults to the client's global parse mode.
@@ -344,14 +344,14 @@ class Messages:
 
         # sending file
         await client.send_media('me', 'photo.jpg', message='My photo')
-        
+
         # sending a document with custom filename
         await client.send_media(
             chat,
             'report.pdf',
             attributes=[types.DocumentAttributeFilename('custom-name.pdf')]
         )
-        
+
         # sending with inline buttons
         await client.send_media(
             chat,
@@ -362,7 +362,7 @@ class Messages:
                 ]
             )
         )
-        
+
         # sending a dice using `types.TypeInputMedia`
         await client.send_media(chat, types.InputMediaDice('🎲'))
         ```
@@ -375,7 +375,7 @@ class Messages:
             nosound_video=nosound_video,
             thumb=thumb,
             stickers=stickers,
-            attributes=attributes 
+            attributes=attributes
         )
 
         if isinstance(message, types.Message):
@@ -389,7 +389,7 @@ class Messages:
                 reply_markup
             )
             message_text = message.message
-        
+
         else:
             message_text = message
 
@@ -413,7 +413,7 @@ class Messages:
         input_peer = await self.get_input_peer(target)
         if send_as is not None:
             send_as = await self.get_input_peer(send_as)
-        
+
         if (
             reply_to
             and not isinstance(reply_to, types.TypeInputReplyTo)
@@ -489,7 +489,7 @@ class Messages:
 
             message (`str` | `types.Message`, optional):
                 The text of the message, or a `types.Message` object
-                to reuse its content and entities.  
+                to reuse its content and entities.
                 When `media` is provided, this becomes the caption.
 
             media (`LikeInputFile`, optional):
@@ -525,9 +525,9 @@ class Messages:
                 If `True`, places the media above the message instead of below.
 
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
                 Only successfully delivered messages are charged.
 
             update_stickersets_order (`bool`, optional):
@@ -579,7 +579,7 @@ class Messages:
         Example:
         ```python
 
-        # send text 
+        # send text
         await client.send_message('me', 'Hello world!')
 
         # send photo with caption
@@ -603,7 +603,7 @@ class Messages:
         ```
         """
 
-        if media is None: 
+        if media is None:
             if isinstance(message, types.Message):
                 media = message.media
 
@@ -701,7 +701,7 @@ class Messages:
 
             background (`bool`, optional):
                 If `True`, forwards the messages in the background.
-            
+
             with_my_score (`bool`, optional):
                 If `True`, includes your score when forwarding games.
 
@@ -712,9 +712,9 @@ class Messages:
                 If `True`, strips captions from media.
 
             allow_paid_floodskip (`bool`, optional):
-                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.  
-                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.  
-                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.  
+                *Bots only*. If `True`, enables paid broadcasts of up to 1000 messages per second, bypassing the free limit of 30 messages/sec.
+                Each message beyond the free limit costs 0.1 Stars, deducted from the bot's balance.
+                To use this feature, the bot must have at least 100.000 Stars and 100.000 monthly active users.
                 Only successfully delivered messages are charged.
 
             top_msg_id (`int`, optional):
@@ -771,7 +771,7 @@ class Messages:
         for index, msg in enumerate(messages):
             if isinstance(msg, int):
                 ids.append(msg)
-            
+
             elif isinstance(msg, types.Message):
                 ids.append(msg.id)
 
@@ -842,6 +842,91 @@ class Messages:
 
         return await self._invoke_wait_updates(request, input_peer_to)
 
+    async def delete_messages(
+        self: 'Telegram',
+        target: alias.LikeEntity,
+        messages: t.Union[LikeMessageId, t.List[LikeMessageId]],
+        *,
+        revoke: bool = True
+    ) -> types.TypeUpdate:
+        """
+        Deletes messages from the specified chat or channel.
+
+        Args:
+            target (`LikeEntity`):
+                The `user`, `chat`, or `channel` from which messages will be deleted.
+
+            messages (`LikeMessageId` | `List[LikeMessageId]`):
+                The message(s) to delete.
+                Can be a `msg_id` (int), a `types.Message` object, or a list of these.
+
+            revoke (`bool`, optional):
+                If `True` (default), deletes the messages for everyone.
+                If `False`, only deletes them from your side (unsend).
+
+        Returns:
+            `TypeUpdate`: Update object for the deletion operation.
+
+        Example:
+        ```python
+        # Delete a single message
+        upd = await client.send_text('me', 'This will be deleted')
+        await client.delete_messages('me', upd.message)
+
+        # Delete multiple messages by ID
+        await client.delete_messages('chat', [123, 124, 125])
+
+        # Delete only for yourself (unsend)
+        await client.delete_messages('chat', message_id, revoke=False)
+        ```
+        """
+
+        # Normalize messages to list of IDs
+        is_single = not is_like_list(messages)
+        if is_single:
+            messages = [messages]
+
+        ids:list[int] = []
+        for index, msg in enumerate(messages):
+            if isinstance(msg, int):
+                ids.append(msg)
+
+            elif isinstance(msg, types.Message):
+                ids.append(msg.id)
+
+            else:
+                if is_single:
+                    raise TypeError(
+                        "Expected 'messages' to be a "
+                        "msg_id (int) or types.Message, or list of these, "
+                        f"not {type(msg).__name__}."
+                    )
+
+                raise TypeError(
+                    f'Invalid item at index {index}: '
+                    f'Expected a msg_id (int) or types.Message, not {type(msg).__name__}'
+                )
+
+        if not ids:
+            raise ValueError(
+                'You must provide at least one message.'
+            )
+
+        input_peer = await self.get_input_peer(target)
+        if isinstance(input_peer, (types.InputPeerChannel, types.InputPeerChat)):
+            request = functions.channels.DeleteMessages(
+                channel= input_peer,
+                id= ids
+            )
+        else:
+            request = functions.messages.DeleteMessages(
+                id= ids,
+                revoke= revoke
+            )
+
+        return await self._invoke_wait_updates(request, input_peer)
+
+
     async def get_input_media(
         self: 'Telegram',
         media: LikeInputMedia,
@@ -906,7 +991,7 @@ class Messages:
                 None
                 if video_cover is None else
                 helpers.cast_to_input_photo(video_cover)
-            ) 
+            )
         )
 
     async def get_input_reply(
@@ -977,7 +1062,7 @@ class Messages:
         *,
         timeout: t.Optional[float] = None
     ) -> t.Union[types.TypeUpdate, t.List[types.TypeUpdate]]:
-        
+
         peer_id = helpers.get_peer_id(peer_id)
 
         futures = []
@@ -987,7 +1072,7 @@ class Messages:
             is_single = not is_like_list(request.random_id)
             random_ids = (
                 [request.random_id]
-                if is_single else 
+                if is_single else
                 request.random_id
             )
 
@@ -1006,7 +1091,7 @@ class Messages:
                 request.id,
                 peer_id=peer_id
             )
-            
+
             futures.append(future)
 
         try:
@@ -1016,7 +1101,7 @@ class Messages:
                 asyncio.gather(*futures),
                 timeout
             )
-            
+
             return response[0] if is_single else list(response)
 
         except asyncio.TimeoutError:
@@ -1028,7 +1113,7 @@ class Messages:
 
             for message_id in message_ids:
                 self._update_tracker.pop_message(message_id, peer_id)
-    
+
     # helper
     @staticmethod
     def parse_message_text(
@@ -1052,7 +1137,7 @@ class Messages:
 
         if parse_mode == 'html':
             text, message_entities = parse_html(message)
-        
+
         elif parse_mode in ('md', 'markdown'):
             text, message_entities = parse_markdown(message)
 
@@ -1065,7 +1150,7 @@ class Messages:
         entities = []
         if _layer_at_least(45):
             # no message entities are supported below layer 46
-        
+
             for entity in message_entities:
                 entity_type = entity.type
 
@@ -1074,7 +1159,7 @@ class Messages:
                         entity.offset,
                         length=entity.length
                     )
-                
+
                 elif entity_type is MessageEntityType.Code:
                     item = types.MessageEntityCode(
                         entity.offset,
@@ -1121,7 +1206,7 @@ class Messages:
                 elif entity_type is MessageEntityType.Underline:
                     if not _layer_at_least(101):
                         continue
-                    
+
                     item = types.MessageEntityUnderline(
                         entity.offset,
                         length=entity.length
@@ -1154,7 +1239,7 @@ class Messages:
                 elif entity_type is MessageEntityType.Strikethrough:
                     if not _layer_at_least(101):
                         continue
-                    
+
                     item = types.MessageEntityStrike(
                         entity.offset,
                         length=entity.length
@@ -1164,7 +1249,7 @@ class Messages:
                 elif entity_type is MessageEntityType.Spoiler:
                     if not _layer_at_least(144):
                         continue
-                    
+
                     item = types.MessageEntitySpoiler(
                         entity.offset,
                         length=entity.length
@@ -1173,13 +1258,13 @@ class Messages:
                 elif entity_type is MessageEntityType.CustomEmoji:
                     if not _layer_at_least(144):
                         continue
-                    
+
                     item = types.MessageEntityCustomEmoji(
                         entity.offset,
                         length=entity.length,
                         document_id=entity.custom_emoji_id
                     )
-                
+
                 else:
                     warnings.warn(
                         'Skipping unsupported entity type: %r at offset=%d, length=%d' % (

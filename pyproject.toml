@@ -20,6 +20,7 @@ license-files = ["LICENSE"]
 
 readme = "README.md"
 description = "Telegram client library for Python."
+homepage = "https://github.com/mivmi/snakegram"
 
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -51,8 +52,10 @@ python-packages = ["snakegram"]
 
 
 [project.urls]
+homepage = "https://github.com/mivmi/snakegram"
 source = "https://github.com/mivmi/snakegram"
 issues = "https://github.com/mivmi/snakegram/issues"
+changelog = "https://github.com/mivmi/snakegram/releases"
 
 
 [project.optional-dependencies]

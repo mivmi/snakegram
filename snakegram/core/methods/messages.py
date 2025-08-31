@@ -1,6 +1,10 @@
 import asyncio
 import warnings
 import typing as t
+import datetime
+import sys
+
+sys.maxsize
 
 from ..internal import Uploader
 from ... import alias, helpers
@@ -1086,6 +1090,93 @@ class Messages:
                 to_timestamp(schedule_date)
             )
         )
+
+        return await self._invoke_wait_updates(request, input_peer)
+
+    async def get_messages(
+        self: 'Telegram',
+        target: alias.LikeEntity,
+        messages: t.Union[LikeMessageId, t.List[LikeMessageId]],
+    ) -> t.Union[types.Message, t.List[types.Message]]:
+        """
+        Gets messages from the specified chat or channel.
+
+        Args:
+            target (`LikeEntity`):
+                The `user`, `chat`, or `channel` from which messages will be retrieved.
+
+            messages (`LikeMessageId` | `List[LikeMessageId]`):
+                The message(s) to get.
+                Can be a `msg_id` (int), a `types.Message` object, or a list of these.
+
+        Returns:
+            `types.Message` | `List[types.Message]`: The retrieved message(s).
+            Returns a single message if a single message ID was provided,
+            or a list of messages if multiple message IDs were provided.
+
+        Raises:
+            `TypeError`: If the messages parameter is not a valid type.
+            `ValueError`: If no messages are provided.
+
+        Example:
+        ```python
+        # Get a single message by ID
+        message = await client.get_messages('me', 123)
+        print(message.text)
+
+        # Get multiple messages by ID
+        messages = await client.get_messages('chat', [123, 124, 125])
+        for msg in messages:
+            print(msg.text)
+
+        # Get message using Message object
+        sent_msg = await client.send_text('me', 'Hello!')
+        retrieved_msg = await client.get_messages('me', sent_msg)
+        print(retrieved_msg.text)
+        ```
+        """
+
+        # Normalize messages to list of IDs
+        is_single = not is_like_list(messages)
+        if is_single:
+            messages = [messages]
+
+        ids: list[int] = []
+        for index, msg in enumerate(messages):
+            if isinstance(msg, int):
+                ids.append(msg)
+
+            elif isinstance(msg, types.Message):
+                ids.append(msg.id)
+
+            else:
+                if is_single:
+                    raise TypeError(
+                        "Expected 'messages' to be a "
+                        "msg_id (int) or types.Message, or list of these, "
+                        f"not {type(msg).__name__}."
+                    )
+
+                raise TypeError(
+                    f'Invalid item at index {index}: '
+                    f'Expected a msg_id (int) or types.Message, not {type(msg).__name__}'
+                )
+
+        if not ids:
+            raise ValueError(
+                'You must provide at least one message.'
+            )
+
+        input_peer = await self.get_input_peer(target)
+        if isinstance(input_peer, (types.InputPeerChannel, types.InputPeerChat)):
+            request = functions.channels.GetMessages(
+                channel= input_peer,
+                id= ids,
+            )
+        else:
+            request = functions.messages.GetMessages(
+                id= ids,
+            )
 
         return await self._invoke_wait_updates(request, input_peer)
 

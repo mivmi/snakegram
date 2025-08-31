@@ -1,6 +1,6 @@
 from inspect import cleandoc as _cleandoc
 
-__version_info__ = (1, 0, 0, 'dev', 1)
+__version_info__ = (1, 0, 0, 'dev', 2)
 
 
 def _get_version(version_info: tuple) -> str:

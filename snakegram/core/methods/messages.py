@@ -926,6 +926,168 @@ class Messages:
 
         return await self._invoke_wait_updates(request, input_peer)
 
+    async def edit_message(
+        self: 'Telegram',
+        target: alias.LikeEntity,
+        message: t.Union[LikeMessageId, types.Message],
+        *,
+        text: t.Optional[str] = None,
+        media: t.Optional[LikeInputMedia] = None,
+        entities: t.Optional[t.List[types.TypeMessageEntity]] = None,
+        parse_mode: t.Optional[alias.ParseMode] = None,
+
+        no_webpage: bool = False,
+        spoiler: bool = False,
+        force_file: bool = False,
+        invert_media: bool = False,
+
+        reply_markup: t.Optional[types.TypeReplyMarkup] = None,
+        schedule_date: t.Optional[alias.LikeTime] = None
+    ) -> types.TypeUpdate:
+        """
+        Edits an existing message in the specified chat or channel.
+
+        Args:
+            target (`LikeEntity`):
+                The `user`, `chat`, or `channel` where the message is located.
+
+            message (`LikeMessageId` | `types.Message`):
+                The message to edit. Can be a message ID (int) or a `types.Message` object.
+
+            text (`str`, optional):
+                New text content for the message. If not provided, the existing text is kept.
+                If both `text` and `media` are provided, `text` becomes the caption for the media.
+
+            media (`LikeInputMedia`, optional):
+                New media to replace the existing media. Can be a file path, file-like object,
+                or `types.TypeInputMedia` object.
+
+            entities (`List[MessageEntity]`, optional):
+                List of message formatting entities for the new text/caption.
+                If provided, parsing will be skipped and the text will be formatted directly.
+
+            parse_mode (`str`, optional):
+                Specifies the parsing mode for the text: `'md'`, `'markdown'`, or `'html'`.
+                Defaults to the client's global parse mode.
+
+            no_webpage (`bool`, optional):
+                If `True`, disables webpage preview for text messages.
+
+            spoiler (`bool`, optional):
+                If `True`, marks the media as a spoiler (blurred until tapped).
+
+            force_file (`bool`, optional):
+                If `True`, sends the media as a file instead of its detected type.
+
+            invert_media (`bool`, optional):
+                If `True`, places the media above the text instead of below.
+
+            reply_markup (`ReplyMarkup`, optional):
+                New reply markup for the message. Set to `None` to remove existing markup.
+
+            schedule_date (`LikeTime`, optional):
+                New schedule date for the message, if it was originally scheduled.
+
+        Returns:
+            `TypeUpdate`: Update object for the edited message.
+
+        Raises:
+            `ValueError`: If neither `text` nor `media` is provided.
+            `TypeError`: If the message parameter is invalid.
+
+        Example:
+        ```python
+        # Edit text of a message
+        msg = await client.send_text('me', 'Original message')
+        await client.edit_message('me', msg, text='Edited message')
+
+        # Edit media with caption
+        msg = await client.send_media('me', 'photo.jpg', 'Original caption')
+        await client.edit_message('me', msg, media='new_photo.jpg', text='New caption')
+
+        # Edit only the markup
+        await client.edit_message(
+            'me',
+            message_id,
+            reply_markup=types.ReplyInlineMarkup([
+                [types.KeyboardButtonCallback('New Button', data=b'new')]
+            ])
+        )
+
+        # Remove media from a message (convert to text)
+        await client.edit_message('me', msg, text='Text only now', media=None)
+        ```
+        """
+
+        if isinstance(message, int):
+            message_id = message
+            original_message = None
+        elif isinstance(message, types.Message):
+            message_id = message.id
+            original_message = message
+        else:
+            raise TypeError(
+                f"Expected 'message' to be a message ID (int) or types.Message, "
+                f"not {type(message).__name__}."
+            )
+
+        # Validate that we have something to edit
+        if text is None and media is None and reply_markup is None:
+            raise ValueError(
+                "At least one of 'text', 'media', or 'reply_markup' must be provided to edit a message."
+            )
+
+        # Prepare text and entities
+        message_text = text
+        if message_text is None and original_message:
+            message_text = original_message.message
+
+        if entities is None and message_text:
+            if original_message and text is None:
+                entities = original_message.entities
+            else:
+                message_text, entities = self.parse_message_text(
+                    message_text,
+                    parse_mode=parse_mode or PARSE_MODE
+                )
+
+        input_media = None
+        if media is not None:
+            if media == types.InputMediaEmpty():
+                input_media = types.InputMediaEmpty()
+            else:
+                input_media = await self.get_input_media(
+                    media,
+                    spoiler=spoiler,
+                    force_file=force_file
+                )
+
+        # If changing text but keeping media, we need to explicitly keep the media
+        elif text is not None and original_message and original_message.media:
+            input_media = original_message.media
+
+        # Prepare markup (keep original if not specified)
+        if reply_markup is None and original_message:
+            reply_markup = original_message.reply_markup
+
+        input_peer = await self.get_input_peer(target)
+        request = functions.messages.EditMessage(
+            peer= input_peer,
+            id= message_id,
+            media= input_media,
+            message= message_text or '',
+            entities= entities,
+            no_webpage= no_webpage,
+            invert_media= invert_media,
+            reply_markup= reply_markup,
+            schedule_date= (
+                None
+                if schedule_date is None else
+                to_timestamp(schedule_date)
+            )
+        )
+
+        return await self._invoke_wait_updates(request, input_peer)
 
     async def get_input_media(
         self: 'Telegram',

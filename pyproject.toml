@@ -1,22 +1,21 @@
 [build-system]
 requires = [
-    "maturin>=1.8.6,<2",
-    "cffi>=1.14; platform_python_implementation != 'PyPy'"
+    "wheel",
+    "setuptools>=62.4",
+    "setuptools-rust>=1.5.2"
 ]
-backend-path = ["."]
-build-backend = "backend"
+build-backend = "setuptools.build_meta"
 
 
 [project]
 name = "snakegram"
-version = "1.0.0.dev1"
+dynamic = ["version"]
 
 authors = [
     { name = "Milad" }
 ]
 
-license = "Apache-2.0"
-license-files = ["LICENSE"]
+license = { file = "LICENSE" }
 
 readme = "README.md"
 description = "Telegram client library for Python."
@@ -44,13 +43,18 @@ dependencies = [
 requires-python = ">=3.8"
 
 #
-[tool.maturin]
-locked = true
-module-name = "snakegram._rust"
-manifest-path = "extension/Cargo.toml"
-python-packages = ["snakegram"]
+[tool.setuptools.packages.find]
+where = ['.']
+include = ['snakegram*']
 
+[[tool.setuptools-rust.ext-modules]]
+target = "snakegram._rust"
+path = "extension/Cargo.toml"
 
+[tool.setuptools.dynamic]
+version = {attr = "snakegram.about.__version__"}
+
+#
 [project.urls]
 homepage = "https://github.com/mivmi/snakegram"
 source = "https://github.com/mivmi/snakegram"
@@ -64,6 +68,7 @@ dev = [
     "pytest-cov>=6.1.1"
 ]
 
+# pytest
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

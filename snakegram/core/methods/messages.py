@@ -3,7 +3,7 @@ import warnings
 import typing as t
 
 from ..internal import Uploader
-from ... import alias, helpers
+from ... import alias, errors, helpers
 from ...tl import secret, types, functions
 from ...enums import MessageEntityType
 from ...gadgets.utils import env, to_timestamp, time_difference, is_like_list
@@ -661,6 +661,48 @@ class Messages:
                 reply_markup=reply_markup
             )
 
+    # forward messages
+    if t.TYPE_CHECKING:
+        @t.overload
+        async def forward_messages(
+            self: 'Telegram',
+            target: alias.LikeEntity,
+            source: alias.LikeEntity,
+            messages: LikeMessageId,
+            *,
+            silent: bool = False,
+            noforwards: bool = False,
+            background: bool = False,
+            with_my_score: bool = False,
+            drop_author: bool = False,
+            drop_media_captions: bool = False,
+            allow_paid_floodskip: bool = False,
+            top_msg_id: t.Optional[int] = None,
+            schedule_date: alias.LikeTime = None,
+            send_as: alias.LikeEntity = None,
+            quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None
+        ) -> types.TypeUpdate: ...
+        
+        @t.overload
+        async def forward_messages(
+            self: 'Telegram',
+            target: alias.LikeEntity,
+            source: alias.LikeEntity,
+            messages: t.List[LikeMessageId],
+            *,
+            silent: bool = False,
+            noforwards: bool = False,
+            background: bool = False,
+            with_my_score: bool = False,
+            drop_author: bool = False,
+            drop_media_captions: bool = False,
+            allow_paid_floodskip: bool = False,
+            top_msg_id: t.Optional[int] = None,
+            schedule_date: alias.LikeTime = None,
+            send_as: alias.LikeEntity = None,
+            quick_reply: t.Union[int, str, types.TypeInputQuickReplyShortcut] = None
+        ) -> t.List[types.TypeUpdate]: ...
+
     async def forward_messages(
         self: 'Telegram',
         target: alias.LikeEntity,
@@ -754,14 +796,12 @@ class Messages:
         # Forward multiple messages ids
         await client.forward_messages(
             'source_chat',
-            'source_chat'
+            'target_chat'
             [123, 124, 125]
         )
 
         ```
         """
-
-        # normalize messages to list of IDs
         is_single = not is_like_list(messages)
         if is_single:
             messages = [messages]
@@ -769,6 +809,8 @@ class Messages:
         ids = []
         video_timestamp = None
         for index, msg in enumerate(messages):
+            msg = helpers._unwrap_message(msg)
+
             if isinstance(msg, int):
                 ids.append(msg)
             
@@ -840,7 +882,295 @@ class Messages:
             video_timestamp=video_timestamp
         )
 
-        return await self._invoke_wait_updates(request, input_peer_to)
+        result = await self._invoke_wait_updates(
+            request,
+            input_peer_to
+        )
+        if isinstance(result, list) and is_single:
+            result = result[0]
+        return result
+
+    # delete messages
+    async def delete_messsages(
+        self: 'Telegram',
+        messages: t.Union[LikeMessageId, t.List[LikeMessageId]],
+        *,
+        revoke: bool = True,
+        channel: t.Optional[alias.LikeEntity] = None
+    ):
+        """Delete the specified messages.
+
+        Args:
+            messages (`LikeMessageId` | `List[LikeMessageId]`):
+                The message(s) to delete.
+                Can be a `msg_id` (int), a `types.Message` object, or a list of these.
+
+            revoke (bool, optional):
+                If `True`.
+                Delete messages for all participants of the chat.
+                Ignored when deleting channel/supergroup messages. Defaults to `True`.
+
+            channel (`LikeEntity`, optional):
+                Required only if `messages` contains `msg_id`
+                from a channel/supergroup, if at least one item in the list
+                is a `types.Message` object, The channel will be detected automatically.
+
+        Example:
+        ```python
+        
+        # Delete single message
+        await client.delete_messages(12345)
+        
+        # Delete multiple messages
+        message_ids = [12345, 12346, 12347]
+        await client.delete_messages(message_ids)
+                
+        # Delete messages only for yourself
+        await client.delete_messages([123, 124], revoke=False)
+        
+        # Delete messages from a specific channel
+        await client.delete_messages([101, 102, 103], channel='@example')
+        ```
+        """
+        is_single = not is_like_list(messages)
+        if is_single:
+            messages = [messages]
+        
+        if len(messages) > 100:
+            raise ValueError(
+                'Too many messages provided. '
+                'You can delete up to 100 messages per request.'
+            )
+
+        if channel is not None:
+            try:
+                input_peer = await self.get_input_peer(channel)
+                input_channel = helpers.cast_to_input_channel(input_peer)
+
+            except TypeError:
+                input_channel = None
+        
+        else:
+            input_channel = None
+
+        ids = []
+        for index, msg in enumerate(messages):
+            msg = helpers._unwrap_message(msg)
+
+            if isinstance(msg, int):
+                ids.append(msg)
+
+            elif isinstance(msg, types.Message):
+                if input_channel:
+                    if (
+                        not isinstance(msg.peer_id, types.PeerChannel)
+                        or 
+                        not msg.peer_id.channel_id == input_channel.channel_id
+                    ):
+                        raise errors.MsgIdInvalidError(request=None)
+
+                elif isinstance(msg.peer_id, types.PeerChannel):
+                    input_peer = await self.get_input_peer(msg.peer_id)
+                    input_channel = helpers.cast_to_input_channel(input_peer)
+
+                ids.append(msg.id)
+            else:
+                if is_single:
+                    raise TypeError(
+                        "Expected 'messages' to be a "
+                        "msg_id (int) or types.Message, or list of these, "
+                        f"not {type(msg).__name__}."
+                    )
+
+                raise TypeError(
+                    f'Invalid item at index {index}: '
+                    f'Expected a msg_id (int) or types.Message, not {type(msg).__name__}'
+                )
+
+        if not ids:
+            raise ValueError(
+                'You must provide at least one message.'
+            )
+
+        if input_channel:
+            request = functions.channels.DeleteMessages(
+                input_channel,
+                id=ids
+            )
+
+        else:
+            request = functions.messages.DeleteMessages(
+                ids,
+                revoke=revoke
+            )
+
+        return await self(request)
+
+    # helper
+    @staticmethod
+    def parse_message_text(
+        message: str,
+        parse_mode: alias.ParseMode,
+        secret_layer: t.Optional[int] = None
+    ):
+        """Parses formatted message (`Markdown` or `HTML`) into text and message entities.
+
+        Args:
+            message (`str`):
+                The text to be parsed.
+            parse_mode (`str`):
+                Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
+
+            secret_layer (`int`, optional):
+                The secret chat layer of the receiving client.
+                Because server can't access message content in secret chats, cannot generate message entities based on the receiver's layer.
+                So, the sender needs to build message entities that work with the receiver's layer.
+        """
+
+        if parse_mode == 'html':
+            text, message_entities = parse_html(message)
+        
+        elif parse_mode in ('md', 'markdown'):
+            text, message_entities = parse_markdown(message)
+
+        else:
+            raise ValueError(f'Unsupported parse mode: {parse_mode!r}')
+
+        def _layer_at_least(n: int):
+            return not secret_layer or secret_layer >= n
+
+        entities = []
+        if _layer_at_least(45):
+            # no message entities are supported below layer 46
+        
+            for entity in message_entities:
+                entity_type = entity.type
+
+                if entity_type is MessageEntityType.Url:
+                    item = types.MessageEntityUrl(
+                        entity.offset,
+                        length=entity.length
+                    )
+                
+                elif entity_type is MessageEntityType.Code:
+                    item = types.MessageEntityCode(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.Bold:
+                    item = types.MessageEntityBold(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.Italic:
+                    item = types.MessageEntityItalic(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.MentionName:
+                    item = types.MessageEntityMentionName(
+                        entity.offset,
+                        length=entity.length,
+                        user_id=entity.user_id
+                    )
+
+                elif entity_type in (
+                    MessageEntityType.Pre,
+                    MessageEntityType.PreCode
+                ):
+                    item = types.MessageEntityPre(
+                        entity.offset,
+                        length=entity.length,
+                        language=entity.data or ''
+                    )
+
+                elif entity_type is MessageEntityType.TextUrl:
+                    item = types.MessageEntityTextUrl(
+                        entity.offset,
+                        length=entity.length,
+                        url=entity.data
+                    )
+
+                # layer >= 101
+                elif entity_type is MessageEntityType.Underline:
+                    if not _layer_at_least(101):
+                        continue
+                    
+                    item = types.MessageEntityUnderline(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type in (
+                    MessageEntityType.BlockQuote,
+                    MessageEntityType.ExpandableBlockQuote
+                ):
+                    if not _layer_at_least(101):
+                        continue
+
+                    collapsed = entity_type is MessageEntityType\
+                        .ExpandableBlockQuote
+
+                    if secret_layer: # no support collapsed
+                        item = secret.MessageEntityBlockquote(
+                            entity.offset,
+                            length=entity.length
+                        )
+
+                    else:
+
+                        item = types.MessageEntityBlockquote(
+                            entity.offset,
+                            length=entity.length,
+                            collapsed=collapsed
+                        )
+
+                elif entity_type is MessageEntityType.Strikethrough:
+                    if not _layer_at_least(101):
+                        continue
+                    
+                    item = types.MessageEntityStrike(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                # layer >= 144
+                elif entity_type is MessageEntityType.Spoiler:
+                    if not _layer_at_least(144):
+                        continue
+                    
+                    item = types.MessageEntitySpoiler(
+                        entity.offset,
+                        length=entity.length
+                    )
+
+                elif entity_type is MessageEntityType.CustomEmoji:
+                    if not _layer_at_least(144):
+                        continue
+                    
+                    item = types.MessageEntityCustomEmoji(
+                        entity.offset,
+                        length=entity.length,
+                        document_id=entity.custom_emoji_id
+                    )
+                
+                else:
+                    warnings.warn(
+                        'Skipping unsupported entity type: %r at offset=%d, length=%d' % (
+                            entity_type.name,
+                            entity.offset,
+                            entity.length
+                        ),
+                        UserWarning
+                    )
+                    continue
+
+                entities.append(item)
+
+        return text, entities
 
     async def get_input_media(
         self: 'Telegram',
@@ -1028,169 +1358,3 @@ class Messages:
 
             for message_id in message_ids:
                 self._update_tracker.pop_message(message_id, peer_id)
-    
-    # helper
-    @staticmethod
-    def parse_message_text(
-        message: str,
-        parse_mode: alias.ParseMode,
-        secret_layer: t.Optional[int] = None
-    ):
-        """Parses formatted message (`Markdown` or `HTML`) into text and message entities.
-
-        Args:
-            message (`str`):
-                The text to be parsed.
-            parse_mode (`str`):
-                Specifies the parsing mode for text formatting: `'md'`, `'markdown'`, or `'html'`.
-
-            secret_layer (`int`, optional):
-                The secret chat layer of the receiving client.
-                Because server can't access message content in secret chats, cannot generate message entities based on the receiver's layer.
-                So, the sender needs to build message entities that work with the receiver's layer.
-        """
-
-        if parse_mode == 'html':
-            text, message_entities = parse_html(message)
-        
-        elif parse_mode in ('md', 'markdown'):
-            text, message_entities = parse_markdown(message)
-
-        else:
-            raise ValueError(f'Unsupported parse mode: {parse_mode!r}')
-
-        def _layer_at_least(n: int):
-            return not secret_layer or secret_layer >= n
-
-        entities = []
-        if _layer_at_least(45):
-            # no message entities are supported below layer 46
-        
-            for entity in message_entities:
-                entity_type = entity.type
-
-                if entity_type is MessageEntityType.Url:
-                    item = types.MessageEntityUrl(
-                        entity.offset,
-                        length=entity.length
-                    )
-                
-                elif entity_type is MessageEntityType.Code:
-                    item = types.MessageEntityCode(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.Bold:
-                    item = types.MessageEntityBold(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.Italic:
-                    item = types.MessageEntityItalic(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.MentionName:
-                    item = types.MessageEntityMentionName(
-                        entity.offset,
-                        length=entity.length,
-                        user_id=entity.user_id
-                    )
-
-                elif entity_type in (
-                    MessageEntityType.Pre,
-                    MessageEntityType.PreCode
-                ):
-                    item = types.MessageEntityPre(
-                        entity.offset,
-                        length=entity.length,
-                        language=entity.data or ''
-                    )
-
-                elif entity_type is MessageEntityType.TextUrl:
-                    item = types.MessageEntityTextUrl(
-                        entity.offset,
-                        length=entity.length,
-                        url=entity.data
-                    )
-
-                # layer >= 101
-                elif entity_type is MessageEntityType.Underline:
-                    if not _layer_at_least(101):
-                        continue
-                    
-                    item = types.MessageEntityUnderline(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type in (
-                    MessageEntityType.BlockQuote,
-                    MessageEntityType.ExpandableBlockQuote
-                ):
-                    if not _layer_at_least(101):
-                        continue
-
-                    collapsed = entity_type is MessageEntityType\
-                        .ExpandableBlockQuote
-
-                    if secret_layer: # no support collapsed
-                        item = secret.MessageEntityBlockquote(
-                            entity.offset,
-                            length=entity.length
-                        )
-
-                    else:
-
-                        item = types.MessageEntityBlockquote(
-                            entity.offset,
-                            length=entity.length,
-                            collapsed=collapsed
-                        )
-
-                elif entity_type is MessageEntityType.Strikethrough:
-                    if not _layer_at_least(101):
-                        continue
-                    
-                    item = types.MessageEntityStrike(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                # layer >= 144
-                elif entity_type is MessageEntityType.Spoiler:
-                    if not _layer_at_least(144):
-                        continue
-                    
-                    item = types.MessageEntitySpoiler(
-                        entity.offset,
-                        length=entity.length
-                    )
-
-                elif entity_type is MessageEntityType.CustomEmoji:
-                    if not _layer_at_least(144):
-                        continue
-                    
-                    item = types.MessageEntityCustomEmoji(
-                        entity.offset,
-                        length=entity.length,
-                        document_id=entity.custom_emoji_id
-                    )
-                
-                else:
-                    warnings.warn(
-                        'Skipping unsupported entity type: %r at offset=%d, length=%d' % (
-                            entity_type.name,
-                            entity.offset,
-                            entity.length
-                        ),
-                        UserWarning
-                    )
-                    continue
-
-                entities.append(item)
-
-        return text, entities

@@ -852,7 +852,7 @@ class Messages:
         messages: t.Union[LikeMessageId, t.List[LikeMessageId]],
         *,
         revoke: bool = True
-    ) -> types.TypeUpdate:
+    ) -> t.List[types.messages.AffectedMessages]:
         """
         Deletes messages from the specified chat or channel.
 
@@ -869,7 +869,7 @@ class Messages:
                 If `False`, only deletes them from your side (unsend).
 
         Returns:
-            `TypeUpdate`: Update object for the deletion operation.
+            `List[AffectedMessages]`: List of affected messages results for each chunk.
 
         Example:
         ```python
@@ -890,13 +890,23 @@ class Messages:
         if is_single:
             messages = [messages]
 
-        ids:list[int] = []
+        ids: list[int] = []
+        msg_peer = None
         for index, msg in enumerate(messages):
             if isinstance(msg, int):
                 ids.append(msg)
 
             elif isinstance(msg, types.Message):
                 ids.append(msg.id)
+
+                peer = getattr(msg, "peer_id", None)
+                if peer:
+                    if msg_peer is None:
+                        msg_peer = peer
+                    elif msg_peer != peer:
+                        raise ValueError(
+                            f"Message at index {index} belongs to a different chat/channel."
+                        )
 
             else:
                 if is_single:
@@ -916,21 +926,34 @@ class Messages:
                 'You must provide at least one message.'
             )
 
-        input_peer = await self.get_input_peer(target)
-        if isinstance(input_peer, (types.InputPeerChannel, types.InputPeerChat)):
-            request = functions.channels.DeleteMessages(
-                channel= input_peer,
-                id= ids
-            )
+        if msg_peer:
+            input_entity = await self.get_input_peer(msg_peer)
         else:
-            request = functions.messages.DeleteMessages(
-                id= ids,
-                revoke= revoke
+            input_entity = await self.get_input_peer(target)
+
+        is_channel = isinstance(input_entity, (types.InputPeerChannel, types.InputPeerChat))
+        results: list[types.messages.AffectedMessages] = []
+        for i in range(0, len(ids), 100):
+            chunk = ids[i:i + 100]
+
+            if is_channel:
+                request = functions.channels.DeleteMessages(
+                    channel= helpers.cast_to_input_channel(input_entity),
+                    id= chunk
+                )
+            else:
+                request = functions.messages.DeleteMessages(
+                    id= chunk,
+                    revoke= revoke
+                )
+
+            results.append(
+                await self(request)
             )
 
-        return await self._invoke_wait_updates(request, input_peer)
+        return results
 
-    async def edit_message(
+    async def edit_messages(
         self: 'Telegram',
         target: alias.LikeEntity,
         message: t.Union[LikeMessageId, types.Message],
@@ -1057,7 +1080,7 @@ class Messages:
 
         input_media = None
         if media is not None:
-            if media == types.InputMediaEmpty():
+            if isinstance(media, types.InputMediaEmpty):
                 input_media = types.InputMediaEmpty()
             else:
                 input_media = await self.get_input_media(

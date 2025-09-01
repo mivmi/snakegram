@@ -1,7 +1,18 @@
-
-true#3fedd339 = True;
-boolTrue#997275b5 = Bool;
+/*
+Constructor may be interpreted as a boolean false value.
+*/
 boolFalse#bc799737 = Bool;
+
+/*
+The constructor can be interpreted as a boolean true value.
+*/
+boolTrue#997275b5 = Bool;
+
+/*
+See [predefined identifiers](https://core.telegram.org/mtproto/TL-formal#predefined-identifiers).
+*/
+true#3fedd339 = True;
+
 
 /*
 Error.
@@ -315,6 +326,7 @@ inputMediaWebPage#c21b8849 flags:# force_large_media:flags.0?true force_small_me
 */
 inputMediaPaidMedia#c4103386 flags:# stars_amount:long extended_media:Vector<InputMedia> payload:flags.0?string = InputMedia;
 
+inputMediaTodo#9fc55fde todo:TodoList = InputMedia;
 /*
 Empty constructor, remove group photo.
 */
@@ -581,10 +593,11 @@ Indicates info about a certain user.
 @profile_color The user's [profile color](https://core.telegram.org/api/colors).
 @bot_active_users Monthly Active Users (MAU) of this bot (may be absent for small bots).
 @bot_verification_icon  ... 
+@send_paid_messages_stars  ... 
 
 #DocError
 */
-user#4b46c37e flags:# self:flags.10?true contact:flags.11?true mutual_contact:flags.12?true deleted:flags.13?true bot:flags.14?true bot_chat_history:flags.15?true bot_nochats:flags.16?true verified:flags.17?true restricted:flags.18?true min:flags.20?true bot_inline_geo:flags.21?true support:flags.23?true scam:flags.24?true apply_min_photo:flags.25?true fake:flags.26?true bot_attach_menu:flags.27?true premium:flags.28?true attach_menu_enabled:flags.29?true flags2:# bot_can_edit:flags2.1?true close_friend:flags2.2?true stories_hidden:flags2.3?true stories_unavailable:flags2.4?true contact_require_premium:flags2.10?true bot_business:flags2.11?true bot_has_main_app:flags2.13?true id:long access_hash:flags.0?long first_name:flags.1?string last_name:flags.2?string username:flags.3?string phone:flags.4?string photo:flags.5?UserProfilePhoto status:flags.6?UserStatus bot_info_version:flags.14?int restriction_reason:flags.18?Vector<RestrictionReason> bot_inline_placeholder:flags.19?string lang_code:flags.22?string emoji_status:flags.30?EmojiStatus usernames:flags2.0?Vector<Username> stories_max_id:flags2.5?int color:flags2.8?PeerColor profile_color:flags2.9?PeerColor bot_active_users:flags2.12?int bot_verification_icon:flags2.14?long = User;
+user#20b1422 flags:# self:flags.10?true contact:flags.11?true mutual_contact:flags.12?true deleted:flags.13?true bot:flags.14?true bot_chat_history:flags.15?true bot_nochats:flags.16?true verified:flags.17?true restricted:flags.18?true min:flags.20?true bot_inline_geo:flags.21?true support:flags.23?true scam:flags.24?true apply_min_photo:flags.25?true fake:flags.26?true bot_attach_menu:flags.27?true premium:flags.28?true attach_menu_enabled:flags.29?true flags2:# bot_can_edit:flags2.1?true close_friend:flags2.2?true stories_hidden:flags2.3?true stories_unavailable:flags2.4?true contact_require_premium:flags2.10?true bot_business:flags2.11?true bot_has_main_app:flags2.13?true id:long access_hash:flags.0?long first_name:flags.1?string last_name:flags.2?string username:flags.3?string phone:flags.4?string photo:flags.5?UserProfilePhoto status:flags.6?UserStatus bot_info_version:flags.14?int restriction_reason:flags.18?Vector<RestrictionReason> bot_inline_placeholder:flags.19?string lang_code:flags.22?string emoji_status:flags.30?EmojiStatus usernames:flags2.0?Vector<Username> stories_max_id:flags2.5?int color:flags2.8?PeerColor profile_color:flags2.9?PeerColor bot_active_users:flags2.12?int bot_verification_icon:flags2.14?long send_paid_messages_stars:flags2.15?long = User;
 
 /*
 Profile photo has not been set, or was hidden.
@@ -701,11 +714,14 @@ Channel/supergroup info
 @join_to_send Whether a user needs to join the supergroup before they can send messages: can be false only for [discussion groups](https://core.telegram.org/api/discussion), toggle using [channels.toggleJoinToSend](https://core.telegram.org/method/channels.toggleJoinToSend) Changes to this flag should invalidate the local [channelFull](https://core.telegram.org/constructor/channelFull) cache for this channel/supergroup ID, see [here](https://core.telegram.org/api/peers#full-info-database) for more info.
 @join_request Whether a user's join request will have to be [approved by administrators](https://core.telegram.org/api/invites#join-requests), toggle using [channels.toggleJoinToSend](https://core.telegram.org/method/channels.toggleJoinRequest) Changes to this flag should invalidate the local [channelFull](https://core.telegram.org/constructor/channelFull) cache for this channel/supergroup ID, see [here](https://core.telegram.org/api/peers#full-info-database) for more info.
 @forum Whether this supergroup is a [forum](https://core.telegram.org/api/forum). Changes to this flag should invalidate the local [channelFull](https://core.telegram.org/constructor/channelFull) cache for this channel/supergroup ID, see [here](https://core.telegram.org/api/peers#full-info-database) for more info.
-@flags2  ... 
 @stories_hidden Whether we have [hidden all stories posted by this channel](https://core.telegram.org/api/stories#hiding-stories-of-other-users).
 @stories_hidden_min If set, indicates that the stories_hidden flag was not populated, and its value must cannot be relied on; use the previously cached value, or re-fetch the constructor using [channels.getChannels](https://core.telegram.org/method/channels.getChannels) to obtain the latest value of the stories_hidden flag.
 @stories_unavailable No stories from the channel are visible.
 @signature_profiles If set, messages sent by admins to this channel will link to the admin's profile (just like with groups).
+@autotranslation  ... 
+@broadcast_messages_allowed  ... 
+@monoforum  ... 
+@forum_tabs  ... 
 @id ID of the channel, see [here](https://core.telegram.org/api/peers#peer-id) for more info
 @access_hash Access hash, see [here](https://core.telegram.org/api/peers#access-hash) for more info
 @title Title
@@ -725,10 +741,12 @@ Channel/supergroup info
 @level [Boost level](https://core.telegram.org/api/boost). Changes to this flag should invalidate the local [channelFull](https://core.telegram.org/constructor/channelFull) cache for this channel/supergroup ID, see [here](https://core.telegram.org/api/peers#full-info-database) for more info.
 @subscription_until_date Expiration date of the [Telegram Star subscription](https://core.telegram.org/api/stars#star-subscriptions) the current user has bought to gain access to this channel.
 @bot_verification_icon  ... 
+@send_paid_messages_stars  ... 
+@linked_monoforum_id  ... 
 
 #DocError
 */
-channel#e00998b7 flags:# creator:flags.0?true left:flags.2?true broadcast:flags.5?true verified:flags.7?true megagroup:flags.8?true restricted:flags.9?true signatures:flags.11?true min:flags.12?true scam:flags.19?true has_link:flags.20?true has_geo:flags.21?true slowmode_enabled:flags.22?true call_active:flags.23?true call_not_empty:flags.24?true fake:flags.25?true gigagroup:flags.26?true noforwards:flags.27?true join_to_send:flags.28?true join_request:flags.29?true forum:flags.30?true flags2:# stories_hidden:flags2.1?true stories_hidden_min:flags2.2?true stories_unavailable:flags2.3?true signature_profiles:flags2.12?true id:long access_hash:flags.13?long title:string username:flags.6?string photo:ChatPhoto date:int restriction_reason:flags.9?Vector<RestrictionReason> admin_rights:flags.14?ChatAdminRights banned_rights:flags.15?ChatBannedRights default_banned_rights:flags.18?ChatBannedRights participants_count:flags.17?int usernames:flags2.0?Vector<Username> stories_max_id:flags2.4?int color:flags2.7?PeerColor profile_color:flags2.8?PeerColor emoji_status:flags2.9?EmojiStatus level:flags2.10?int subscription_until_date:flags2.11?int bot_verification_icon:flags2.13?long = Chat;
+channel#fe685355 flags:# creator:flags.0?true left:flags.2?true broadcast:flags.5?true verified:flags.7?true megagroup:flags.8?true restricted:flags.9?true signatures:flags.11?true min:flags.12?true scam:flags.19?true has_link:flags.20?true has_geo:flags.21?true slowmode_enabled:flags.22?true call_active:flags.23?true call_not_empty:flags.24?true fake:flags.25?true gigagroup:flags.26?true noforwards:flags.27?true join_to_send:flags.28?true join_request:flags.29?true forum:flags.30?true flags2:# stories_hidden:flags2.1?true stories_hidden_min:flags2.2?true stories_unavailable:flags2.3?true signature_profiles:flags2.12?true autotranslation:flags2.15?true broadcast_messages_allowed:flags2.16?true monoforum:flags2.17?true forum_tabs:flags2.19?true id:long access_hash:flags.13?long title:string username:flags.6?string photo:ChatPhoto date:int restriction_reason:flags.9?Vector<RestrictionReason> admin_rights:flags.14?ChatAdminRights banned_rights:flags.15?ChatBannedRights default_banned_rights:flags.18?ChatBannedRights participants_count:flags.17?int usernames:flags2.0?Vector<Username> stories_max_id:flags2.4?int color:flags2.7?PeerColor profile_color:flags2.8?PeerColor emoji_status:flags2.9?EmojiStatus level:flags2.10?int subscription_until_date:flags2.11?int bot_verification_icon:flags2.13?long send_paid_messages_stars:flags2.14?long linked_monoforum_id:flags2.18?long = Chat;
 
 /*
 Indicates a channel/supergroup we can't access because we were banned, or for some other reason.
@@ -779,7 +797,6 @@ Full info about a [channel](https://core.telegram.org/api/channel#channels), [su
 @has_scheduled Whether scheduled messages are available
 @can_view_stats Can the user view [channel/supergroup statistics](https://core.telegram.org/api/stats)
 @blocked Whether any anonymous admin of this supergroup was blocked: if set, you won't receive messages from anonymous group admins in [discussion replies via @replies](https://core.telegram.org/api/discussion)
-@flags2  ... 
 @can_delete_channel Can we delete this channel?
 @antispam Whether [native antispam](https://core.telegram.org/api/antispam) functionality is enabled in this supergroup.
 @participants_hidden Whether the participant list is hidden.
@@ -792,6 +809,7 @@ Full info about a [channel](https://core.telegram.org/api/channel#channels), [su
 @can_view_stars_revenue If set, this user can view [Telegram Star revenue statistics](https://core.telegram.org/api/stars#revenue-statistics) for this channel.
 @paid_reactions_available If set, users may send [paid Telegram Star reactions](https://core.telegram.org/api/reactions#paid-reactions) to messages of this channel.
 @stargifts_available  ... 
+@paid_messages_available  ... 
 @id ID of the channel
 @about Info about the channel
 @participants_count Number of participants of the channel
@@ -835,10 +853,12 @@ Full info about a [channel](https://core.telegram.org/api/channel#channels), [su
 @emojiset [Custom emoji stickerset](https://core.telegram.org/api/custom-emoji) associated to the current supergroup, set using [channels.setEmojiStickers](https://core.telegram.org/method/channels.setEmojiStickers) after reaching the appropriate boost level, see [here](https://core.telegram.org/api/boost#setting-a-custom-emoji-stickerset-for-supergroups) for more info.
 @bot_verification  ... 
 @stargifts_count  ... 
+@send_paid_messages_stars  ... 
+@main_tab  ... 
 
 #DocError
 */
-channelFull#52d6806b flags:# can_view_participants:flags.3?true can_set_username:flags.6?true can_set_stickers:flags.7?true hidden_prehistory:flags.10?true can_set_location:flags.16?true has_scheduled:flags.19?true can_view_stats:flags.20?true blocked:flags.22?true flags2:# can_delete_channel:flags2.0?true antispam:flags2.1?true participants_hidden:flags2.2?true translations_disabled:flags2.3?true stories_pinned_available:flags2.5?true view_forum_as_messages:flags2.6?true restricted_sponsored:flags2.11?true can_view_revenue:flags2.12?true paid_media_allowed:flags2.14?true can_view_stars_revenue:flags2.15?true paid_reactions_available:flags2.16?true stargifts_available:flags2.19?true id:long about:string participants_count:flags.0?int admins_count:flags.1?int kicked_count:flags.2?int banned_count:flags.2?int online_count:flags.13?int read_inbox_max_id:int read_outbox_max_id:int unread_count:int chat_photo:Photo notify_settings:PeerNotifySettings exported_invite:flags.23?ExportedChatInvite bot_info:Vector<BotInfo> migrated_from_chat_id:flags.4?long migrated_from_max_id:flags.4?int pinned_msg_id:flags.5?int stickerset:flags.8?StickerSet available_min_id:flags.9?int folder_id:flags.11?int linked_chat_id:flags.14?long location:flags.15?ChannelLocation slowmode_seconds:flags.17?int slowmode_next_send_date:flags.18?int stats_dc:flags.12?int pts:int call:flags.21?InputGroupCall ttl_period:flags.24?int pending_suggestions:flags.25?Vector<string> groupcall_default_join_as:flags.26?Peer theme_emoticon:flags.27?string requests_pending:flags.28?int recent_requesters:flags.28?Vector<long> default_send_as:flags.29?Peer available_reactions:flags.30?ChatReactions reactions_limit:flags2.13?int stories:flags2.4?PeerStories wallpaper:flags2.7?WallPaper boosts_applied:flags2.8?int boosts_unrestrict:flags2.9?int emojiset:flags2.10?StickerSet bot_verification:flags2.17?BotVerification stargifts_count:flags2.18?int = ChatFull;
+channelFull#e4e0b29d flags:# can_view_participants:flags.3?true can_set_username:flags.6?true can_set_stickers:flags.7?true hidden_prehistory:flags.10?true can_set_location:flags.16?true has_scheduled:flags.19?true can_view_stats:flags.20?true blocked:flags.22?true flags2:# can_delete_channel:flags2.0?true antispam:flags2.1?true participants_hidden:flags2.2?true translations_disabled:flags2.3?true stories_pinned_available:flags2.5?true view_forum_as_messages:flags2.6?true restricted_sponsored:flags2.11?true can_view_revenue:flags2.12?true paid_media_allowed:flags2.14?true can_view_stars_revenue:flags2.15?true paid_reactions_available:flags2.16?true stargifts_available:flags2.19?true paid_messages_available:flags2.20?true id:long about:string participants_count:flags.0?int admins_count:flags.1?int kicked_count:flags.2?int banned_count:flags.2?int online_count:flags.13?int read_inbox_max_id:int read_outbox_max_id:int unread_count:int chat_photo:Photo notify_settings:PeerNotifySettings exported_invite:flags.23?ExportedChatInvite bot_info:Vector<BotInfo> migrated_from_chat_id:flags.4?long migrated_from_max_id:flags.4?int pinned_msg_id:flags.5?int stickerset:flags.8?StickerSet available_min_id:flags.9?int folder_id:flags.11?int linked_chat_id:flags.14?long location:flags.15?ChannelLocation slowmode_seconds:flags.17?int slowmode_next_send_date:flags.18?int stats_dc:flags.12?int pts:int call:flags.21?InputGroupCall ttl_period:flags.24?int pending_suggestions:flags.25?Vector<string> groupcall_default_join_as:flags.26?Peer theme_emoticon:flags.27?string requests_pending:flags.28?int recent_requesters:flags.28?Vector<long> default_send_as:flags.29?Peer available_reactions:flags.30?ChatReactions reactions_limit:flags2.13?int stories:flags2.4?PeerStories wallpaper:flags2.7?WallPaper boosts_applied:flags2.8?int boosts_unrestrict:flags2.9?int emojiset:flags2.10?StickerSet bot_verification:flags2.17?BotVerification stargifts_count:flags2.18?int send_paid_messages_stars:flags2.21?long main_tab:flags2.22?ProfileTab = ChatFull;
 
 /*
 Group member.
@@ -919,9 +939,10 @@ A message
 @pinned Whether this message is [pinned](https://core.telegram.org/api/pin)
 @noforwards Whether this message is [protected](https://telegram.org/blog/protected-content-delete-by-date-and-more) and thus cannot be forwarded; clients should also prevent users from saving attached media (i.e. videos should only be streamed, photos should be kept in RAM, et cetera).
 @invert_media If set, any eventual webpage preview will be shown on top of the message instead of at the bottom.
-@flags2  ... 
 @offline If set, the message was sent because of a scheduled action by the message sender, for example, as away, or a greeting service message.
 @video_processing_pending The video contained in the message is currently being processed by the server (i.e. to generate alternative qualities, that will be contained in the final [messageMediaDocument](https://core.telegram.org/constructor/messageMediaDocument). alt_document), and will be sent once the video is processed, which will happen approximately at the specified date (i.e. messages with this flag set should be treated similarly to [scheduled messages](https://core.telegram.org/api/scheduled-messages), but instead of the scheduled date, date contains the estimated conversion date). See [here](https://core.telegram.org/api/files#video-qualities) for more info.
+@paid_suggested_post_stars  ... 
+@paid_suggested_post_ton  ... 
 @id ID of the message
 @from_id ID of the sender of the message
 @from_boosts_applied Supergroups only, contains the number of [boosts](https://core.telegram.org/api/boost) this user has given the current supergroup, and should be shown in the UI in the header of the message. Only present for incoming messages from non-anonymous supergroup members that have boosted the supergroup. Note that this counter should be locally overridden for non-anonymous outgoing messages, according to the current value of [channelFull](https://core.telegram.org/constructor/channelFull). boosts_applied, to ensure the value is correct even for messages sent by the current user before a supergroup was boosted (or after a boost has expired or the number of boosts has changed); do not update this value for incoming messages from other users, even if their boosts have changed.
@@ -949,10 +970,12 @@ A message
 @effect A [message effect that should be played as specified here](https://core.telegram.org/api/effects).
 @factcheck Represents a [fact-check](https://core.telegram.org/api/factcheck).
 @report_delivery_until_date  ... 
+@paid_message_stars  ... 
+@suggested_post  ... 
 
 #DocError
 */
-message#96fdbbe9 flags:# out:flags.1?true mentioned:flags.4?true media_unread:flags.5?true silent:flags.13?true post:flags.14?true from_scheduled:flags.18?true legacy:flags.19?true edit_hide:flags.21?true pinned:flags.24?true noforwards:flags.26?true invert_media:flags.27?true flags2:# offline:flags2.1?true video_processing_pending:flags2.4?true id:int from_id:flags.8?Peer from_boosts_applied:flags.29?int peer_id:Peer saved_peer_id:flags.28?Peer fwd_from:flags.2?MessageFwdHeader via_bot_id:flags.11?long via_business_bot_id:flags2.0?long reply_to:flags.3?MessageReplyHeader date:int message:string media:flags.9?MessageMedia reply_markup:flags.6?ReplyMarkup entities:flags.7?Vector<MessageEntity> views:flags.10?int forwards:flags.10?int replies:flags.23?MessageReplies edit_date:flags.15?int post_author:flags.16?string grouped_id:flags.17?long reactions:flags.20?MessageReactions restriction_reason:flags.22?Vector<RestrictionReason> ttl_period:flags.25?int quick_reply_shortcut_id:flags.30?int effect:flags2.2?long factcheck:flags2.3?FactCheck report_delivery_until_date:flags2.5?int = Message;
+message#9815cec8 flags:# out:flags.1?true mentioned:flags.4?true media_unread:flags.5?true silent:flags.13?true post:flags.14?true from_scheduled:flags.18?true legacy:flags.19?true edit_hide:flags.21?true pinned:flags.24?true noforwards:flags.26?true invert_media:flags.27?true flags2:# offline:flags2.1?true video_processing_pending:flags2.4?true paid_suggested_post_stars:flags2.8?true paid_suggested_post_ton:flags2.9?true id:int from_id:flags.8?Peer from_boosts_applied:flags.29?int peer_id:Peer saved_peer_id:flags.28?Peer fwd_from:flags.2?MessageFwdHeader via_bot_id:flags.11?long via_business_bot_id:flags2.0?long reply_to:flags.3?MessageReplyHeader date:int message:string media:flags.9?MessageMedia reply_markup:flags.6?ReplyMarkup entities:flags.7?Vector<MessageEntity> views:flags.10?int forwards:flags.10?int replies:flags.23?MessageReplies edit_date:flags.15?int post_author:flags.16?string grouped_id:flags.17?long reactions:flags.20?MessageReactions restriction_reason:flags.22?Vector<RestrictionReason> ttl_period:flags.25?int quick_reply_shortcut_id:flags.30?int effect:flags2.2?long factcheck:flags2.3?FactCheck report_delivery_until_date:flags2.5?int paid_message_stars:flags2.6?long suggested_post:flags2.7?SuggestedPost = Message;
 
 /*
 Indicates a service message
@@ -967,6 +990,7 @@ Indicates a service message
 @id Message ID
 @from_id ID of the sender of this message
 @peer_id Sender of service message
+@saved_peer_id  ... 
 @reply_to Reply (thread) information
 @date Message date
 @action Event connected with the service message
@@ -975,7 +999,7 @@ Indicates a service message
 
 #DocError
 */
-messageService#d3d28540 flags:# out:flags.1?true mentioned:flags.4?true media_unread:flags.5?true reactions_are_possible:flags.9?true silent:flags.13?true post:flags.14?true legacy:flags.19?true id:int from_id:flags.8?Peer peer_id:Peer reply_to:flags.3?MessageReplyHeader date:int action:MessageAction reactions:flags.20?MessageReactions ttl_period:flags.25?int = Message;
+messageService#7a800e0a flags:# out:flags.1?true mentioned:flags.4?true media_unread:flags.5?true reactions_are_possible:flags.9?true silent:flags.13?true post:flags.14?true legacy:flags.19?true id:int from_id:flags.8?Peer peer_id:Peer saved_peer_id:flags.28?Peer reply_to:flags.3?MessageReplyHeader date:int action:MessageAction reactions:flags.20?MessageReactions ttl_period:flags.25?int = Message;
 
 /*
 Empty constructor.
@@ -1072,7 +1096,7 @@ Invoice
 @photo URL of the product photo for the invoice. Can be a photo of the goods or a marketing image for a service. People like it better when they see what they are paying for.
 @receipt_msg_id Message ID of receipt: if set, clients should change the text of the first [keyboardButtonBuy](https://core.telegram.org/constructor/keyboardButtonBuy) button always attached to the [message](https://core.telegram.org/constructor/message) to a localized version of the word Receipt
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code, or XTR for [Telegram Stars](https://core.telegram.org/api/stars).
-@total_amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @start_param Unique bot deep-linking parameter that can be used to generate this invoice
 @extended_media Deprecated
 */
@@ -1155,6 +1179,7 @@ messageMediaGiveawayResults#ceaa3ea1 flags:# only_new_subscribers:flags.0?true r
 */
 messageMediaPaidMedia#a8852491 stars_amount:long extended_media:Vector<MessageExtendedMedia> = MessageMedia;
 
+messageMediaToDo#8a53b014 flags:# todo:TodoList completions:flags.0?Vector<TodoCompletion> = MessageMedia;
 /*
 Empty constructor.
 */
@@ -1254,7 +1279,7 @@ A user just sent a payment to me (a bot)
 @recurring_init Whether this is the first payment of a recurring payment we just subscribed to
 @recurring_used Whether this payment is part of a recurring payment
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code, or XTR for [Telegram Stars](https://core.telegram.org/api/stars).
-@total_amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @payload Bot specified invoice payload
 @info Order info provided by the user
 @shipping_option_id Identifier of the shipping option chosen by the user
@@ -1269,7 +1294,7 @@ A payment was sent
 @recurring_init Whether this is the first payment of a recurring payment we just subscribed to
 @recurring_used Whether this payment is part of a recurring payment
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code, or XTR for [Telegram Stars](https://core.telegram.org/api/stars).
-@total_amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @invoice_slug An invoice slug taken from an [invoice deep link](https://core.telegram.org/api/links#invoice-links) or from the [premium_invoice_slug app config parameter](https://core.telegram.org/api/config#premium-invoice-slug)
 @subscription_until_date Expiration date of the [Telegram Star subscription](https://core.telegram.org/api/stars#star-subscriptions).
 */
@@ -1371,9 +1396,11 @@ messageActionGroupCallScheduled#b3a07661 call:InputGroupCall schedule_date:int =
 /*
 The chat theme was changed
 
-@emoticon The emoji that identifies a chat theme
+@theme  ... 
+
+#DocError
 */
-messageActionSetChatTheme#aa786345 emoticon:string = MessageAction;
+messageActionSetChatTheme#b91bbd3a theme:ChatTheme = MessageAction;
 
 /*
 A user was accepted into the group by an admin
@@ -1399,7 +1426,7 @@ messageActionWebViewDataSent#b4c38cb5 text:string = MessageAction;
 Info about a gifted Telegram Premium subscription
 
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Price of the gift in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Price of the gift in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @months Duration of the gifted Telegram Premium subscription
 @crypto_currency If the gift was bought using a cryptocurrency, the cryptocurrency name.
 @crypto_amount If the gift was bought using a cryptocurrency, price of the gift in the smallest units of a cryptocurrency.
@@ -1459,12 +1486,12 @@ Contains a [Telegram Premium giftcode link](https://core.telegram.org/api/links#
 @months Duration in months of the gifted [Telegram Premium subscription](https://core.telegram.org/api/premium).
 @slug Slug of the [Telegram Premium giftcode link](https://core.telegram.org/api/links#premium-giftcode-links)
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @crypto_currency If set, the gift was made using the specified cryptocurrency.
 @crypto_amount If crypto_currency is set, contains the paid amount, in the smallest units of the cryptocurrency.
 @message Message attached with the gift
 */
-messageActionGiftCode#56d03994 flags:# via_giveaway:flags.0?true unclaimed:flags.2?true boost_peer:flags.1?Peer months:int slug:string currency:flags.2?string amount:flags.2?long crypto_currency:flags.3?string crypto_amount:flags.3?long message:flags.4?TextWithEntities = MessageAction;
+messageActionGiftCode#56d03994 flags:# via_giveaway:flags.0?true unclaimed:flags.5?true boost_peer:flags.1?Peer months:int slug:string currency:flags.2?string amount:flags.2?long crypto_currency:flags.3?string crypto_amount:flags.3?long message:flags.4?TextWithEntities = MessageAction;
 
 /*
 A [giveaway](https://core.telegram.org/api/giveaways) was started.
@@ -1502,7 +1529,7 @@ Describes a payment refund (service message received by both users and bots).
 
 @peer Identifier of the peer that returned the funds.
 @currency Currency, XTR for Telegram Stars.
-@total_amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @payload Bot specified invoice payload (only received by bots).
 @charge Provider payment identifier
 */
@@ -1512,7 +1539,7 @@ messageActionPaymentRefunded#41b3e202 flags:# peer:Peer currency:string total_am
 You gifted or were gifted some [Telegram Stars](https://core.telegram.org/api/stars).
 
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Price of the gift in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Price of the gift in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @stars Amount of gifted stars
 @crypto_currency If the gift was bought using a cryptocurrency, the cryptocurrency name.
 @crypto_amount If the gift was bought using a cryptocurrency, price of the gift in the smallest units of a cryptocurrency.
@@ -1540,6 +1567,8 @@ You received a [gift, see here](https://core.telegram.org/api/gifts) for more in
 @upgraded  ... 
 @refunded  ... 
 @can_upgrade  ... 
+@prepaid_upgrade  ... 
+@upgrade_separate  ... 
 @gift Info about the gift
 @message Additional message from the sender of the gift
 @convert_stars The receiver of this gift may convert it to this many Telegram Stars, instead of displaying it on their profile page. convert_stars will be equal to stars only if the gift was bought using recently bought Telegram Stars, otherwise it will be less than stars.
@@ -1548,12 +1577,23 @@ You received a [gift, see here](https://core.telegram.org/api/gifts) for more in
 @from_id  ... 
 @peer  ... 
 @saved_id  ... 
+@prepaid_upgrade_hash  ... 
+@gift_msg_id  ... 
 
 #DocError
 */
-messageActionStarGift#4717e8a4 flags:# name_hidden:flags.0?true saved:flags.2?true converted:flags.3?true upgraded:flags.5?true refunded:flags.9?true can_upgrade:flags.10?true gift:StarGift message:flags.1?TextWithEntities convert_stars:flags.4?long upgrade_msg_id:flags.5?int upgrade_stars:flags.8?long from_id:flags.11?Peer peer:flags.12?Peer saved_id:flags.12?long = MessageAction;
+messageActionStarGift#f24de7fa flags:# name_hidden:flags.0?true saved:flags.2?true converted:flags.3?true upgraded:flags.5?true refunded:flags.9?true can_upgrade:flags.10?true prepaid_upgrade:flags.13?true upgrade_separate:flags.16?true gift:StarGift message:flags.1?TextWithEntities convert_stars:flags.4?long upgrade_msg_id:flags.5?int upgrade_stars:flags.8?long from_id:flags.11?Peer peer:flags.12?Peer saved_id:flags.12?long prepaid_upgrade_hash:flags.14?string gift_msg_id:flags.15?int = MessageAction;
 
-messageActionStarGiftUnique#acdfcb81 flags:# upgrade:flags.0?true transferred:flags.1?true saved:flags.2?true refunded:flags.5?true gift:StarGift can_export_at:flags.3?int transfer_stars:flags.4?long from_id:flags.6?Peer peer:flags.7?Peer saved_id:flags.7?long = MessageAction;
+messageActionStarGiftUnique#34f762f3 flags:# upgrade:flags.0?true transferred:flags.1?true saved:flags.2?true refunded:flags.5?true prepaid_upgrade:flags.11?true gift:StarGift can_export_at:flags.3?int transfer_stars:flags.4?long from_id:flags.6?Peer peer:flags.7?Peer saved_id:flags.7?long resale_amount:flags.8?StarsAmount can_transfer_at:flags.9?int can_resell_at:flags.10?int = MessageAction;
+messageActionPaidMessagesRefunded#ac1f1fcd count:int stars:long = MessageAction;
+messageActionPaidMessagesPrice#84b88578 flags:# broadcast_messages_allowed:flags.0?true stars:long = MessageAction;
+messageActionConferenceCall#2ffe2f7a flags:# missed:flags.0?true active:flags.1?true video:flags.4?true call_id:long duration:flags.2?int other_participants:flags.3?Vector<Peer> = MessageAction;
+messageActionTodoCompletions#cc7c5c89 completed:Vector<int> incompleted:Vector<int> = MessageAction;
+messageActionTodoAppendTasks#c7edbc83 list:Vector<TodoItem> = MessageAction;
+messageActionSuggestedPostApproval#ee7a1596 flags:# rejected:flags.0?true balance_too_low:flags.1?true reject_comment:flags.2?string schedule_date:flags.3?int price:flags.4?StarsAmount = MessageAction;
+messageActionSuggestedPostSuccess#95ddcf69 price:StarsAmount = MessageAction;
+messageActionSuggestedPostRefund#69f916f8 flags:# payer_initiated:flags.0?true = MessageAction;
+messageActionGiftTon#a8a3c699 flags:# currency:string amount:long crypto_currency:string crypto_amount:long transaction_id:flags.0?string = MessageAction;
 /*
 Chat
 
@@ -1695,6 +1735,7 @@ The user successfully authorized using [future auth tokens](https://core.telegra
 */
 auth.sentCodeSuccess#2390fe44 authorization:auth.Authorization = auth.SentCode;
 
+auth.sentCodePaymentRequired#d7a2fcf9 store_product:string phone_code_hash:string support_email_address:string support_email_subject:string = auth.SentCode;
 /*
 Contains user authorization info.
 
@@ -1800,8 +1841,15 @@ List of actions that are possible when interacting with this user, to be shown a
 @request_chat_date If set, this is a private chat with an administrator of a chat or channel to which the user sent a join request, and this field contains the timestamp when the [join request](https://core.telegram.org/api/invites#join-requests) was sent.
 @business_bot_id Contains the ID of the [business bot](https://core.telegram.org/api/business#connected-bots) managing this chat, used to display info about the bot in the action bar.
 @business_bot_manage_url Contains a [deep link](https://core.telegram.org/api/links), used to open a management menu in the business bot. This flag is set if and only if business_bot_id is set.
+@charge_paid_message_stars  ... 
+@registration_month  ... 
+@phone_country  ... 
+@name_change_date  ... 
+@photo_change_date  ... 
+
+#DocError
 */
-peerSettings#acd66c5e flags:# report_spam:flags.0?true add_contact:flags.1?true block_contact:flags.2?true share_contact:flags.3?true need_contacts_exception:flags.4?true report_geo:flags.5?true autoarchived:flags.7?true invite_members:flags.8?true request_chat_broadcast:flags.10?true business_bot_paused:flags.11?true business_bot_can_reply:flags.12?true geo_distance:flags.6?int request_chat_title:flags.9?string request_chat_date:flags.9?int business_bot_id:flags.13?long business_bot_manage_url:flags.13?string = PeerSettings;
+peerSettings#f47741f7 flags:# report_spam:flags.0?true add_contact:flags.1?true block_contact:flags.2?true share_contact:flags.3?true need_contacts_exception:flags.4?true report_geo:flags.5?true autoarchived:flags.7?true invite_members:flags.8?true request_chat_broadcast:flags.10?true business_bot_paused:flags.11?true business_bot_can_reply:flags.12?true geo_distance:flags.6?int request_chat_title:flags.9?string request_chat_date:flags.9?int business_bot_id:flags.13?long business_bot_manage_url:flags.13?string charge_paid_message_stars:flags.14?long registration_month:flags.15?string phone_country:flags.16?string name_change_date:flags.17?int photo_change_date:flags.18?int = PeerSettings;
 
 /*
 Represents a [wallpaper](https://core.telegram.org/api/wallpapers) based on an image.
@@ -1894,10 +1942,10 @@ Extended user info
 @wallpaper_overridden Whether the other user has chosen a custom wallpaper for us using [messages.setChatWallPaper](https://core.telegram.org/method/messages.setChatWallPaper) and the for_both flag, see [here](https://core.telegram.org/api/wallpapers#installing-wallpapers-in-a-specific-chat-or-channel) for more info.
 @contact_require_premium If set, we cannot write to this user: subscribe to [Telegram Premium](https://core.telegram.org/api/premium) to get permission to write to this user. To set this flag for ourselves invoke [account.setGlobalPrivacySettings](https://core.telegram.org/method/account.setGlobalPrivacySettings), setting the settings.new_noncontact_peers_require_premium flag, see [here](https://core.telegram.org/api/privacy#require-premium-for-new-non-contact-users) for more info.
 @read_dates_private If set, we cannot fetch the exact read date of messages we send to this user using [messages.getOutboxReadDate](https://core.telegram.org/method/messages.getOutboxReadDate).  The exact read date of messages might still be unavailable for other reasons, see [here](https://core.telegram.org/method/messages.getOutboxReadDate) for more info.  To set this flag for ourselves invoke [account.setGlobalPrivacySettings](https://core.telegram.org/method/account.setGlobalPrivacySettings), setting the settings.hide_read_marks flag.
-@flags2  ... 
 @sponsored_enabled Whether ads were re-enabled for the current account (only accessible to the currently logged-in user), see [here](https://core.telegram.org/api/business#re-enable-ads) for more info.
 @can_view_revenue If set, this user can view [ad revenue statistics](https://core.telegram.org/api/revenue#revenue-statistics) for this bot.
 @bot_can_manage_emoji_status If set, this is a bot that can [change our emoji status](https://core.telegram.org/api/emoji-status#setting-an-emoji-status-from-a-bot)
+@display_gifts_button  ... 
 @id User ID
 @about Bio of the user
 @settings Peer settings
@@ -1910,11 +1958,10 @@ Extended user info
 @common_chats_count Chats in common with this user
 @folder_id [Peer folder ID, for more info click here](https://core.telegram.org/api/folders#peer-folders)
 @ttl_period Time To Live of all messages in this chat; once a message is this many seconds old, it must be deleted.
-@theme_emoticon Emoji associated with chat theme
+@theme  ... 
 @private_forward_name Anonymized text to be shown instead of the user's name on forwarded messages
 @bot_group_admin_rights A [suggested set of administrator rights](https://core.telegram.org/api/rights#suggested-bot-rights) for the bot, to be shown when adding the bot as admin to a group, see [here for more info on how to handle them](https://core.telegram.org/api/rights#suggested-bot-rights).
 @bot_broadcast_admin_rights A [suggested set of administrator rights](https://core.telegram.org/api/rights#suggested-bot-rights) for the bot, to be shown when adding the bot as admin to a channel, see [here for more info on how to handle them](https://core.telegram.org/api/rights#suggested-bot-rights).
-@premium_gifts Telegram Premium subscriptions gift options
 @wallpaper [Wallpaper](https://core.telegram.org/api/wallpapers) to use in the private chat with the user.
 @stories Active [stories](https://core.telegram.org/api/stories)
 @business_work_hours [Telegram Business working hours](https://core.telegram.org/api/business#opening-hours).
@@ -1928,10 +1975,17 @@ Extended user info
 @stargifts_count Number of [gifts](https://core.telegram.org/api/gifts) the user has chosen to display on their profile
 @starref_program This bot has an active [referral program](https://core.telegram.org/api/bots/referrals)
 @bot_verification  ... 
+@send_paid_messages_stars  ... 
+@disallowed_gifts  ... 
+@stars_rating  ... 
+@stars_my_pending_rating  ... 
+@stars_my_pending_rating_date  ... 
+@main_tab  ... 
+@saved_music  ... 
 
 #DocError
 */
-userFull#4d975bbc flags:# blocked:flags.0?true phone_calls_available:flags.4?true phone_calls_private:flags.5?true can_pin_message:flags.7?true has_scheduled:flags.12?true video_calls_available:flags.13?true voice_messages_forbidden:flags.20?true translations_disabled:flags.23?true stories_pinned_available:flags.26?true blocked_my_stories_from:flags.27?true wallpaper_overridden:flags.28?true contact_require_premium:flags.29?true read_dates_private:flags.30?true flags2:# sponsored_enabled:flags2.7?true can_view_revenue:flags2.9?true bot_can_manage_emoji_status:flags2.10?true id:long about:flags.1?string settings:PeerSettings personal_photo:flags.21?Photo profile_photo:flags.2?Photo fallback_photo:flags.22?Photo notify_settings:PeerNotifySettings bot_info:flags.3?BotInfo pinned_msg_id:flags.6?int common_chats_count:int folder_id:flags.11?int ttl_period:flags.14?int theme_emoticon:flags.15?string private_forward_name:flags.16?string bot_group_admin_rights:flags.17?ChatAdminRights bot_broadcast_admin_rights:flags.18?ChatAdminRights premium_gifts:flags.19?Vector<PremiumGiftOption> wallpaper:flags.24?WallPaper stories:flags.25?PeerStories business_work_hours:flags2.0?BusinessWorkHours business_location:flags2.1?BusinessLocation business_greeting_message:flags2.2?BusinessGreetingMessage business_away_message:flags2.3?BusinessAwayMessage business_intro:flags2.4?BusinessIntro birthday:flags2.5?Birthday personal_channel_id:flags2.6?long personal_channel_message:flags2.6?int stargifts_count:flags2.8?int starref_program:flags2.11?StarRefProgram bot_verification:flags2.12?BotVerification = UserFull;
+userFull#c577b5ad flags:# blocked:flags.0?true phone_calls_available:flags.4?true phone_calls_private:flags.5?true can_pin_message:flags.7?true has_scheduled:flags.12?true video_calls_available:flags.13?true voice_messages_forbidden:flags.20?true translations_disabled:flags.23?true stories_pinned_available:flags.26?true blocked_my_stories_from:flags.27?true wallpaper_overridden:flags.28?true contact_require_premium:flags.29?true read_dates_private:flags.30?true flags2:# sponsored_enabled:flags2.7?true can_view_revenue:flags2.9?true bot_can_manage_emoji_status:flags2.10?true display_gifts_button:flags2.16?true id:long about:flags.1?string settings:PeerSettings personal_photo:flags.21?Photo profile_photo:flags.2?Photo fallback_photo:flags.22?Photo notify_settings:PeerNotifySettings bot_info:flags.3?BotInfo pinned_msg_id:flags.6?int common_chats_count:int folder_id:flags.11?int ttl_period:flags.14?int theme:flags.15?ChatTheme private_forward_name:flags.16?string bot_group_admin_rights:flags.17?ChatAdminRights bot_broadcast_admin_rights:flags.18?ChatAdminRights wallpaper:flags.24?WallPaper stories:flags.25?PeerStories business_work_hours:flags2.0?BusinessWorkHours business_location:flags2.1?BusinessLocation business_greeting_message:flags2.2?BusinessGreetingMessage business_away_message:flags2.3?BusinessAwayMessage business_intro:flags2.4?BusinessIntro birthday:flags2.5?Birthday personal_channel_id:flags2.6?long personal_channel_message:flags2.6?int stargifts_count:flags2.8?int starref_program:flags2.11?StarRefProgram bot_verification:flags2.12?BotVerification send_paid_messages_stars:flags2.14?long disallowed_gifts:flags2.15?DisallowedGiftsSettings stars_rating:flags2.17?StarsRating stars_my_pending_rating:flags2.18?StarsRating stars_my_pending_rating_date:flags2.18?int main_tab:flags2.20?ProfileTab saved_music:flags2.21?Document = UserFull;
 
 /*
 A contact of the current user that is registered in the system.
@@ -2044,11 +2098,14 @@ Incomplete list of messages and auxiliary data.
 @count Total number of messages in the list
 @next_rate Rate to use in the offset_rate parameter in the next call to [messages.searchGlobal](https://core.telegram.org/method/messages.searchGlobal)
 @offset_id_offset Indicates the absolute position of messages[0] within the total result set with count count. This is useful, for example, if the result was fetched using offset_id, and we need to display a progress/total counter (like photo 134 of 200, for all media in a chat, we could simply use photo ${offset_id_offset} of ${count}.
+@search_flood  ... 
 @messages List of messages
 @chats List of chats mentioned in messages
 @users List of users mentioned in messages and chats
+
+#DocError
 */
-messages.messagesSlice#3a54685e flags:# inexact:flags.1?true count:int next_rate:flags.0?int offset_id_offset:flags.2?int messages:Vector<Message> chats:Vector<Chat> users:Vector<User> = messages.Messages;
+messages.messagesSlice#762b263d flags:# inexact:flags.1?true count:int next_rate:flags.0?int offset_id_offset:flags.2?int search_flood:flags.3?SearchPostsFlood messages:Vector<Message> chats:Vector<Chat> users:Vector<User> = messages.Messages;
 
 /*
 Channel messages
@@ -2580,9 +2637,12 @@ Notifies a change of a message [draft](https://core.telegram.org/api/drafts).
 
 @peer The peer to which the draft is associated
 @top_msg_id ID of the [forum topic](https://core.telegram.org/api/forum#forum-topics) to which the draft is associated
+@saved_peer_id  ... 
 @draft The draft
+
+#DocError
 */
-updateDraftMessage#1b49ec6d flags:# peer:Peer top_msg_id:flags.0?int draft:DraftMessage = Update;
+updateDraftMessage#edfc111e flags:# peer:Peer top_msg_id:flags.0?int saved_peer_id:flags.1?Peer draft:DraftMessage = Update;
 
 /*
 Some featured stickers were marked as read
@@ -2666,7 +2726,7 @@ This object contains information about an incoming pre-checkout query.
 @info Order info provided by the user
 @shipping_option_id Identifier of the shipping option chosen by the user
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code, or XTR for [Telegram Stars](https://core.telegram.org/api/stars).
-@total_amount Total amount in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Total amount in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 updateBotPrecheckoutQuery#8caa9a96 flags:# query_id:long user_id:long payload:bytes info:flags.0?PaymentRequestedInfo shipping_option_id:flags.1?string currency:string total_amount:long = Update;
 
@@ -2701,9 +2761,12 @@ The specified [channel/supergroup](https://core.telegram.org/api/channel) messag
 
 @channel_id [Channel/supergroup](https://core.telegram.org/api/channel) ID
 @top_msg_id [Forum topic ID](https://core.telegram.org/api/forum#forum-topics).
+@saved_peer_id  ... 
 @messages IDs of messages that were read
+
+#DocError
 */
-updateChannelReadMessagesContents#ea29055d flags:# channel_id:long top_msg_id:flags.0?int messages:Vector<int> = Update;
+updateChannelReadMessagesContents#25f324f7 flags:# channel_id:long top_msg_id:flags.0?int saved_peer_id:flags.1?Peer messages:Vector<int> = Update;
 
 /*
 All contacts were deleted
@@ -2723,8 +2786,11 @@ The manual unread mark of a chat was changed
 
 @unread Was the chat marked or unmarked as read
 @peer The dialog
+@saved_peer_id  ... 
+
+#DocError
 */
-updateDialogUnreadMark#e16459c3 flags:# unread:flags.0?true peer:DialogPeer = Update;
+updateDialogUnreadMark#b658f23e flags:# unread:flags.0?true peer:DialogPeer saved_peer_id:flags.1?Peer = Update;
 
 /*
 The results of a poll have changed
@@ -3027,9 +3093,12 @@ New [message reactions](https://core.telegram.org/api/reactions) are available
 @peer Peer
 @msg_id Message ID
 @top_msg_id [Forum topic ID](https://core.telegram.org/api/forum#forum-topics)
+@saved_peer_id  ... 
 @reactions Reactions
+
+#DocError
 */
-updateMessageReactions#5e1b3cb8 flags:# peer:Peer msg_id:int top_msg_id:flags.0?int reactions:MessageReactions = Update;
+updateMessageReactions#1e297bfa flags:# peer:Peer msg_id:int top_msg_id:flags.0?int saved_peer_id:flags.1?Peer reactions:MessageReactions = Update;
 
 /*
 The list of installed [attachment menu entries](https://core.telegram.org/api/bots/attach) has changed, use [messages.getAttachMenuBots](https://core.telegram.org/method/messages.getAttachMenuBots) to fetch the updated list.
@@ -3339,14 +3408,6 @@ Represents a new [reaction to a story](https://core.telegram.org/api/reactions#n
 updateNewStoryReaction#1824e40b story_id:int peer:Peer reaction:Reaction = Update;
 
 /*
-A new [channel ad revenue transaction was made, see here](https://core.telegram.org/api/revenue#revenue-statistics) for more info.
-
-@peer Channel
-@balances New ad revenue balance.
-*/
-updateBroadcastRevenueTransactions#dfd961f5 peer:Peer balances:BroadcastRevenueBalances = Update;
-
-/*
 The current account's [Telegram Stars balance](https://core.telegram.org/api/stars) has changed.
 
 @balance New balance.
@@ -3390,6 +3451,11 @@ Contains the current [default paid reaction privacy, see here](https://core.tele
 */
 updatePaidReactionPrivacy#8b725fce private:PaidReactionPrivacy = Update;
 
+updateSentPhoneCode#504aa18f sent_code:auth.SentCode = Update;
+updateGroupCallChainBlocks#a477288f call:InputGroupCall sub_chain_id:int blocks:Vector<bytes> next_offset:int = Update;
+updateReadMonoForumInbox#77b0e372 channel_id:long saved_peer_id:Peer read_max_id:int = Update;
+updateReadMonoForumOutbox#a4a79376 channel_id:long saved_peer_id:Peer read_max_id:int = Update;
+updateMonoForumNoPaidException#9f812b08 flags:# exception:flags.0?true channel_id:long saved_peer_id:Peer = Update;
 /*
 Updates state.
 
@@ -4096,6 +4162,7 @@ Whether received [gifts](https://core.telegram.org/api/gifts) will be automatica
 */
 inputPrivacyKeyStarGiftsAutoSave#e1732341 = InputPrivacyKey;
 
+inputPrivacyKeyNoPaidMessages#bdc597b4 = InputPrivacyKey;
 /*
 Whether we can see the last online timestamp of this user.
 */
@@ -4156,6 +4223,7 @@ Whether received [gifts](https://core.telegram.org/api/gifts) will be automatica
 */
 privacyKeyStarGiftsAutoSave#2ca4fdf8 = PrivacyKey;
 
+privacyKeyNoPaidMessages#17d348d2 = PrivacyKey;
 /*
 Allow only contacts
 */
@@ -4686,6 +4754,7 @@ Default [custom emoji status](https://core.telegram.org/api/emoji-status) sticke
 */
 inputStickerSetEmojiChannelDefaultStatuses#49748553 = InputStickerSet;
 
+inputStickerSetTonGifts#1cf671a0 = InputStickerSet;
 /*
 Represents a stickerset (stickerpack)
 
@@ -5570,7 +5639,7 @@ Send an invoice
 @description Product description, 1-255 characters
 @photo Product photo
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code, or XTR for [Telegram Stars](https://core.telegram.org/api/stars).
-@total_amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @reply_markup Inline keyboard
 */
 botInlineMessageMediaInvoice#354a9b09 flags:# shipping_address_requested:flags.1?true test:flags.3?true title:string description:string photo:flags.0?WebDocument currency:string total_amount:long reply_markup:flags.2?ReplyMarkup = BotInlineMessage;
@@ -5929,8 +5998,11 @@ Represents a message [draft](https://core.telegram.org/api/drafts).
 @media Media.
 @date Date of last update of the draft.
 @effect A [message effect that should be played as specified here](https://core.telegram.org/api/effects).
+@suggested_post  ... 
+
+#DocError
 */
-draftMessage#2d65321f flags:# no_webpage:flags.1?true invert_media:flags.6?true reply_to:flags.4?InputReplyTo message:string entities:flags.3?Vector<MessageEntity> media:flags.5?InputMedia date:int effect:flags.7?long = DraftMessage;
+draftMessage#96eaa5eb flags:# no_webpage:flags.1?true invert_media:flags.6?true reply_to:flags.4?InputReplyTo message:string entities:flags.3?Vector<MessageEntity> media:flags.5?InputMedia date:int effect:flags.7?long suggested_post:flags.8?SuggestedPost = DraftMessage;
 
 /*
 Featured stickers haven't changed
@@ -6461,7 +6533,7 @@ The phone call was discarded because the user is busy in another call
 */
 phoneCallDiscardReasonBusy#faf7e8c9 = PhoneCallDiscardReason;
 
-phoneCallDiscardReasonAllowGroupCall#afe2b839 encrypted_key:bytes = PhoneCallDiscardReason;
+phoneCallDiscardReasonMigrateConferenceCall#9fbbf1f7 slug:string = PhoneCallDiscardReason;
 /*
 Represents a json-encoded object
 
@@ -6473,7 +6545,7 @@ dataJSON#7d748d04 data:string = DataJSON;
 This object represents a portion of the price for goods or services.
 
 @label Portion label
-@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 labeledPrice#cb296bf8 label:string amount:long = LabeledPrice;
 
@@ -6491,7 +6563,7 @@ Invoice
 @recurring Whether this is a recurring payment
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code, or XTR for [Telegram Stars](https://core.telegram.org/api/stars).
 @prices Price breakdown, a list of components (e.g. product price, tax, discount, delivery cost, delivery tax, bonus, etc.)
-@max_tip_amount The maximum accepted amount for tips in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@max_tip_amount The maximum accepted amount for tips in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @suggested_tip_amounts A vector of suggested amounts of tips in the smallest units of the currency (integer, not float/double). At most 4 suggested tip amounts can be specified. The suggested tip amounts must be positive, passed in a strictly increased order and must not exceed max_tip_amount.
 @terms_url Terms of service URL
 @subscription_period The number of seconds between consecutive Telegram Star debiting for [bot subscription](https://core.telegram.org/api/subscriptions#bot-subscriptions) invoices
@@ -6687,7 +6759,7 @@ Receipt
 @shipping Selected shipping option
 @tip_amount Tipped amount
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@total_amount Total amount in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@total_amount Total amount in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @credentials_title Payment credential name
 @users Users
 */
@@ -6800,11 +6872,8 @@ Incoming phone call
 @participant_id Participant ID
 @protocol Phone call protocol info
 @receive_date When was the phone call received
-@conference_call  ... 
-
-#DocError
 */
-phoneCallWaiting#eed42858 flags:# video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long protocol:PhoneCallProtocol receive_date:flags.0?int conference_call:flags.8?InputGroupCall = PhoneCall;
+phoneCallWaiting#c5226f17 flags:# video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long protocol:PhoneCallProtocol receive_date:flags.0?int = PhoneCall;
 
 /*
 Requested phone call
@@ -6817,11 +6886,8 @@ Requested phone call
 @participant_id ID of the other participant of the phone call
 @g_a_hash [Parameter for key exchange](https://core.telegram.org/api/end-to-end/voice-calls)
 @protocol Call protocol info to be passed to libtgvoip
-@conference_call  ... 
-
-#DocError
 */
-phoneCallRequested#45361c63 flags:# video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long g_a_hash:bytes protocol:PhoneCallProtocol conference_call:flags.8?InputGroupCall = PhoneCall;
+phoneCallRequested#14b0ed0c flags:# video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long g_a_hash:bytes protocol:PhoneCallProtocol = PhoneCall;
 
 /*
 An accepted phone call
@@ -6834,17 +6900,15 @@ An accepted phone call
 @participant_id ID of the other user in the call
 @g_b B parameter for [secure E2E phone call key exchange](https://core.telegram.org/api/end-to-end/voice-calls)
 @protocol Protocol to use for phone call
-@conference_call  ... 
-
-#DocError
 */
-phoneCallAccepted#22fd7181 flags:# video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long g_b:bytes protocol:PhoneCallProtocol conference_call:flags.8?InputGroupCall = PhoneCall;
+phoneCallAccepted#3660c311 flags:# video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long g_b:bytes protocol:PhoneCallProtocol = PhoneCall;
 
 /*
 Phone call
 
 @p2p_allowed Whether P2P connection to the other peer is allowed
 @video Whether this is a video call
+@conference_supported  ... 
 @id Call ID
 @access_hash Access hash
 @date Date of creation of the call
@@ -6856,11 +6920,10 @@ Phone call
 @connections List of endpoints the user can connect to exchange call data
 @start_date When was the call actually started
 @custom_parameters Custom JSON-encoded call parameters to be passed to tgcalls.
-@conference_call  ... 
 
 #DocError
 */
-phoneCall#3ba5940c flags:# p2p_allowed:flags.5?true video:flags.6?true id:long access_hash:long date:int admin_id:long participant_id:long g_a_or_b:bytes key_fingerprint:long protocol:PhoneCallProtocol connections:Vector<PhoneConnection> start_date:int custom_parameters:flags.7?DataJSON conference_call:flags.8?InputGroupCall = PhoneCall;
+phoneCall#30535af5 flags:# p2p_allowed:flags.5?true video:flags.6?true conference_supported:flags.8?true id:long access_hash:long date:int admin_id:long participant_id:long g_a_or_b:bytes key_fingerprint:long protocol:PhoneCallProtocol connections:Vector<PhoneConnection> start_date:int custom_parameters:flags.7?DataJSON = PhoneCall;
 
 /*
 Indicates a discarded phone call
@@ -6871,11 +6934,8 @@ Indicates a discarded phone call
 @id Call ID
 @reason Why was the phone call discarded
 @duration Duration of the phone call in seconds
-@conference_call  ... 
-
-#DocError
 */
-phoneCallDiscarded#f9d25503 flags:# need_rating:flags.2?true need_debug:flags.3?true video:flags.6?true id:long reason:flags.0?PhoneCallDiscardReason duration:flags.1?int conference_call:flags.8?InputGroupCall = PhoneCall;
+phoneCallDiscarded#50ca4de1 flags:# need_rating:flags.2?true need_debug:flags.3?true video:flags.6?true id:long reason:flags.0?PhoneCallDiscardReason duration:flags.1?int = PhoneCall;
 
 /*
 Identifies an endpoint that can be used to connect to the other user in a phone call
@@ -7378,6 +7438,7 @@ A paid subscriber has extended their [Telegram Star subscription](https://core.t
 */
 channelAdminLogEventActionParticipantSubExtend#64642db3 prev_participant:ChannelParticipant new_participant:ChannelParticipant = ChannelAdminLogEventAction;
 
+channelAdminLogEventActionToggleAutotranslation#c517f77e new_value:Bool = ChannelAdminLogEventAction;
 /*
 Admin log event
 
@@ -8258,8 +8319,11 @@ Represents the rights of an admin in a [channel/supergroup](https://core.telegra
 @post_stories If set, allows the admin to post [stories](https://core.telegram.org/api/stories) as the [channel](https://core.telegram.org/api/channel).
 @edit_stories If set, allows the admin to edit [stories](https://core.telegram.org/api/stories) posted by the other admins of the [channel](https://core.telegram.org/api/channel).
 @delete_stories If set, allows the admin to delete [stories](https://core.telegram.org/api/stories) posted by the other admins of the [channel](https://core.telegram.org/api/channel).
+@manage_direct_messages  ... 
+
+#DocError
 */
-chatAdminRights#5fb224d5 flags:# change_info:flags.0?true post_messages:flags.1?true edit_messages:flags.2?true delete_messages:flags.3?true ban_users:flags.4?true invite_users:flags.5?true pin_messages:flags.7?true add_admins:flags.9?true anonymous:flags.10?true manage_call:flags.11?true other:flags.12?true manage_topics:flags.13?true post_stories:flags.14?true edit_stories:flags.15?true delete_stories:flags.16?true = ChatAdminRights;
+chatAdminRights#5fb224d5 flags:# change_info:flags.0?true post_messages:flags.1?true edit_messages:flags.2?true delete_messages:flags.3?true ban_users:flags.4?true invite_users:flags.5?true pin_messages:flags.7?true add_admins:flags.9?true anonymous:flags.10?true manage_call:flags.11?true other:flags.12?true manage_topics:flags.13?true post_stories:flags.14?true edit_stories:flags.15?true delete_stories:flags.16?true manage_direct_messages:flags.17?true = ChatAdminRights;
 
 /*
 Represents the rights of a normal user in a [supergroup/channel/chat](https://core.telegram.org/api/channel). In this case, the flags are inverted: if set, a flag does not allow a user to do X.
@@ -8677,6 +8741,7 @@ Contains info about a [stickerset](https://core.telegram.org/api/stickers), for 
 webPageAttributeStickerSet#50cc03d3 flags:# emojis:flags.0?true text_color:flags.1?true stickers:Vector<Document> = WebPageAttribute;
 
 webPageAttributeUniqueStarGift#cf6f6db8 gift:StarGift = WebPageAttribute;
+webPageAttributeStarGiftCollection#31cad303 icons:Vector<Document> = WebPageAttribute;
 /*
 How users voted in a poll
 
@@ -8845,12 +8910,17 @@ MTProxy/Public Service Announcement information
 @proxy MTProxy-related channel
 @expires Expiry of PSA/MTProxy info
 @peer MTProxy/PSA peer
-@chats Chat info
-@users User info
 @psa_type PSA type
 @psa_message PSA message
+@pending_suggestions  ... 
+@dismissed_suggestions  ... 
+@custom_pending_suggestion  ... 
+@chats Chat info
+@users User info
+
+#DocError
 */
-help.promoData#8c39793f flags:# proxy:flags.0?true expires:int peer:Peer chats:Vector<Chat> users:Vector<User> psa_type:flags.1?string psa_message:flags.2?string = help.PromoData;
+help.promoData#8a4d87a flags:# proxy:flags.0?true expires:int peer:flags.3?Peer psa_type:flags.1?string psa_message:flags.2?string pending_suggestions:Vector<string> dismissed_suggestions:Vector<string> custom_pending_suggestion:flags.4?PendingSuggestion chats:Vector<Chat> users:Vector<User> = help.PromoData;
 
 /*
 An [animated profile picture](https://core.telegram.org/api/files#animated-profile-pictures) in MPEG4 format
@@ -8938,8 +9008,13 @@ Global privacy settings
 @keep_archived_folders Whether unmuted chats that are always included or pinned in a [folder](https://core.telegram.org/api/folders), will be kept in the Archive chat list when they get a new message. Ignored if keep_archived_unmuted is set.
 @hide_read_marks If this flag is set, the [inputPrivacyKeyStatusTimestamp](https://core.telegram.org/constructor/inputPrivacyKeyStatusTimestamp) key will also apply to the ability to use [messages.getOutboxReadDate](https://core.telegram.org/method/messages.getOutboxReadDate) on messages sent to us. Meaning, users that cannot see our exact last online date due to the current value of the [inputPrivacyKeyStatusTimestamp](https://core.telegram.org/constructor/inputPrivacyKeyStatusTimestamp) key will receive a 403 USER_PRIVACY_RESTRICTED error when invoking [messages.getOutboxReadDate](https://core.telegram.org/method/messages.getOutboxReadDate) to fetch the exact read date of a message they sent to us. The [userFull](https://core.telegram.org/constructor/userFull). read_dates_private flag will be set for users that have this flag enabled.
 @new_noncontact_peers_require_premium If set, only users that have a premium account, are in our contact list, or already have a private chat with us can write to us; a 403 PRIVACY_PREMIUM_REQUIRED error will be emitted otherwise.  The [userFull](https://core.telegram.org/constructor/userFull). contact_require_premium flag will be set for users that have this flag enabled.  To check whether we can write to a user with this flag enabled, if we haven't yet cached all the required information (for example we don't have the [userFull](https://core.telegram.org/constructor/userFull) or history of all users while displaying the chat list in the sharing UI) the [users.getIsPremiumRequiredToContact](https://core.telegram.org/method/users.getIsPremiumRequiredToContact) method may be invoked, passing the list of users currently visible in the UI, returning a list of booleans that directly specify whether we can or cannot write to each user. This option may be enabled by both non- [Premium](https://core.telegram.org/api/premium) and [Premium](https://core.telegram.org/api/premium) users only if the [new_noncontact_peers_require_premium_without_ownpremium client configuration flag](https://core.telegram.org/api/config#new-noncontact-peers-require-premium-without-ownpremium) is equal to true, otherwise it may be enabled only by [Premium](https://core.telegram.org/api/premium) users and non-Premium users will receive a PREMIUM_ACCOUNT_REQUIRED error when trying to enable this flag.
+@display_gifts_button  ... 
+@noncontact_peers_paid_stars  ... 
+@disallowed_gifts  ... 
+
+#DocError
 */
-globalPrivacySettings#734c4ccb flags:# archive_and_mute_new_noncontact_peers:flags.0?true keep_archived_unmuted:flags.1?true keep_archived_folders:flags.2?true hide_read_marks:flags.3?true new_noncontact_peers_require_premium:flags.4?true = GlobalPrivacySettings;
+globalPrivacySettings#fe41b34f flags:# archive_and_mute_new_noncontact_peers:flags.0?true keep_archived_unmuted:flags.1?true keep_archived_folders:flags.2?true hide_read_marks:flags.3?true new_noncontact_peers_require_premium:flags.4?true display_gifts_button:flags.7?true noncontact_peers_paid_stars:flags.5?long disallowed_gifts:flags.6?DisallowedGiftsSettings = GlobalPrivacySettings;
 
 /*
 Country code and phone number pattern of a specific country
@@ -9019,8 +9094,11 @@ Message replies and [thread](https://core.telegram.org/api/threads) information
 @quote_text Used to quote-reply to only a certain section (specified here) of the original message.
 @quote_entities [Message entities for styled text](https://core.telegram.org/api/entities) from the quote_text field.
 @quote_offset Offset of the message quote_text within the original message (in [UTF-16 code units](https://core.telegram.org/api/entities#entity-length)).
+@todo_item_id  ... 
+
+#DocError
 */
-messageReplyHeader#afbc09db flags:# reply_to_scheduled:flags.2?true forum_topic:flags.3?true quote:flags.9?true reply_to_msg_id:flags.4?int reply_to_peer_id:flags.0?Peer reply_from:flags.5?MessageFwdHeader reply_media:flags.8?MessageMedia reply_to_top_id:flags.1?int quote_text:flags.6?string quote_entities:flags.7?Vector<MessageEntity> quote_offset:flags.10?int = MessageReplyHeader;
+messageReplyHeader#6917560b flags:# reply_to_scheduled:flags.2?true forum_topic:flags.3?true quote:flags.9?true reply_to_msg_id:flags.4?int reply_to_peer_id:flags.0?Peer reply_from:flags.5?MessageFwdHeader reply_media:flags.8?MessageMedia reply_to_top_id:flags.1?int quote_text:flags.6?string quote_entities:flags.7?Vector<MessageEntity> quote_offset:flags.10?int todo_item_id:flags.11?int = MessageReplyHeader;
 
 /*
 Represents a reply to a [story](https://core.telegram.org/api/stories)
@@ -9079,6 +9157,8 @@ Info about a group call or livestream
 @record_video_active Whether the group call is currently being recorded
 @rtmp_stream Whether RTMP streams are allowed
 @listeners_hidden Whether the listeners list is hidden and cannot be fetched using [phone.getGroupParticipants](https://core.telegram.org/method/phone.getGroupParticipants). The phone.groupParticipants.count and groupCall.participants_count counters will still include listeners.
+@conference  ... 
+@creator  ... 
 @id Group call ID
 @access_hash Group call access hash
 @participants_count Participant count
@@ -9089,11 +9169,11 @@ Info about a group call or livestream
 @unmuted_video_count Number of people currently streaming video into the call
 @unmuted_video_limit Maximum number of people allowed to stream video into the call
 @version Version
-@conference_from_call  ... 
+@invite_link  ... 
 
 #DocError
 */
-groupCall#cdf8d3e3 flags:# join_muted:flags.1?true can_change_join_muted:flags.2?true join_date_asc:flags.6?true schedule_start_subscribed:flags.8?true can_start_video:flags.9?true record_video_active:flags.11?true rtmp_stream:flags.12?true listeners_hidden:flags.13?true id:long access_hash:long participants_count:int title:flags.3?string stream_dc_id:flags.4?int record_start_date:flags.5?int schedule_date:flags.7?int unmuted_video_count:flags.10?int unmuted_video_limit:int version:int conference_from_call:flags.14?long = GroupCall;
+groupCall#553b0ba1 flags:# join_muted:flags.1?true can_change_join_muted:flags.2?true join_date_asc:flags.6?true schedule_start_subscribed:flags.8?true can_start_video:flags.9?true record_video_active:flags.11?true rtmp_stream:flags.12?true listeners_hidden:flags.13?true conference:flags.14?true creator:flags.15?true id:long access_hash:long participants_count:int title:flags.3?string stream_dc_id:flags.4?int record_start_date:flags.5?int schedule_date:flags.7?int unmuted_video_count:flags.10?int unmuted_video_limit:int version:int invite_link:flags.16?string = GroupCall;
 
 /*
 Points to a specific group call
@@ -9103,6 +9183,8 @@ Points to a specific group call
 */
 inputGroupCall#d8aa840f id:long access_hash:long = InputGroupCall;
 
+inputGroupCallSlug#fe06823f slug:string = InputGroupCall;
+inputGroupCallInviteMessage#8c10603f msg_id:int = InputGroupCall;
 /*
 Info about a group call participant
 
@@ -9382,6 +9464,32 @@ The 2FA password was reset successfully.
 account.resetPasswordOk#e926d63e = account.ResetPasswordResult;
 
 /*
+A chat theme
+
+@emoticon Emoji, identifying this specific chat theme
+*/
+chatTheme#c3dffc04 emoticon:string = ChatTheme;
+
+chatThemeUniqueGift#3458f9c8 gift:StarGift theme_settings:Vector<ThemeSettings> = ChatTheme;
+/*
+The available chat themes were not modified
+*/
+account.chatThemesNotModified#e011e1c4 = account.ChatThemes;
+
+/*
+Available chat themes
+
+@hash [Hash used for caching, for more info click here](https://core.telegram.org/api/offsets#hash-generation)
+@themes Available chat themes
+@chats  ... 
+@users  ... 
+@next_offset  ... 
+
+#DocError
+*/
+account.chatThemes#16484857 flags:# hash:long themes:Vector<ChatTheme> chats:Vector<Chat> users:Vector<User> next_offset:flags.0?int = account.ChatThemes;
+
+/*
 A [sponsored message](https://core.telegram.org/api/sponsored-messages).
 
 @recommended Whether the message needs to be labeled as "recommended" instead of "sponsored"
@@ -9397,18 +9505,26 @@ A [sponsored message](https://core.telegram.org/api/sponsored-messages).
 @button_text Label of the sponsored message button.
 @sponsor_info If set, contains additional information about the sponsor to be shown along with the message.
 @additional_info If set, contains additional information about the sponsored message to be shown along with the message.
+@min_display_duration  ... 
+@max_display_duration  ... 
+
+#DocError
 */
-sponsoredMessage#4d93a990 flags:# recommended:flags.5?true can_report:flags.12?true random_id:bytes url:string title:string message:string entities:flags.1?Vector<MessageEntity> photo:flags.6?Photo media:flags.14?MessageMedia color:flags.13?PeerColor button_text:string sponsor_info:flags.7?string additional_info:flags.8?string = SponsoredMessage;
+sponsoredMessage#7dbf8673 flags:# recommended:flags.5?true can_report:flags.12?true random_id:bytes url:string title:string message:string entities:flags.1?Vector<MessageEntity> photo:flags.6?Photo media:flags.14?MessageMedia color:flags.13?PeerColor button_text:string sponsor_info:flags.7?string additional_info:flags.8?string min_display_duration:flags.15?int max_display_duration:flags.15?int = SponsoredMessage;
 
 /*
 A set of sponsored messages associated to a channel
 
 @posts_between If set, specifies the minimum number of messages between shown sponsored messages; otherwise, only one sponsored message must be shown after all ordinary messages.
+@start_delay  ... 
+@between_delay  ... 
 @messages Sponsored messages
 @chats Chats mentioned in the sponsored messages
 @users Users mentioned in the sponsored messages
+
+#DocError
 */
-messages.sponsoredMessages#c9ee1d87 flags:# posts_between:flags.0?int messages:Vector<SponsoredMessage> chats:Vector<Chat> users:Vector<User> = messages.SponsoredMessages;
+messages.sponsoredMessages#ffda656d flags:# posts_between:flags.0?int start_delay:flags.1?int between_delay:flags.2?int messages:Vector<SponsoredMessage> chats:Vector<Chat> users:Vector<User> = messages.SponsoredMessages;
 
 /*
 No sponsored messages are available.
@@ -9806,6 +9922,10 @@ inputInvoiceStarGift#e8625e92 flags:# hide_name:flags.0?true include_upgrade:fla
 
 inputInvoiceStarGiftUpgrade#4d818d5d flags:# keep_original_details:flags.0?true stargift:InputSavedStarGift = InputInvoice;
 inputInvoiceStarGiftTransfer#4a5f5bd9 stargift:InputSavedStarGift to_id:InputPeer = InputInvoice;
+inputInvoicePremiumGiftStars#dabab2ef flags:# user_id:InputUser months:int message:flags.0?TextWithEntities = InputInvoice;
+inputInvoiceBusinessBotTransferStars#f4997e42 bot:InputUser stars:long = InputInvoice;
+inputInvoiceStarGiftResale#c39f5324 flags:# ton:flags.0?true slug:string to_id:InputPeer = InputInvoice;
+inputInvoiceStarGiftPrepaidUpgrade#9a0b48b8 peer:InputPeer hash:string = InputInvoice;
 /*
 Exported [invoice deep link](https://core.telegram.org/api/links#invoice-links)
 
@@ -9849,7 +9969,7 @@ Info about a gifted Telegram Premium purchase
 
 @user_id The user to which the Telegram Premium subscription was gifted
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 inputStorePaymentGiftPremium#616f7fe8 user_id:InputUser currency:string amount:long = InputStorePaymentPurpose;
 
@@ -9859,7 +9979,7 @@ Used to gift [Telegram Premium](https://core.telegram.org/api/premium) subscript
 @users The users that will receive the [Telegram Premium](https://core.telegram.org/api/premium) subscriptions.
 @boost_peer If set, the gifts will be sent on behalf of a channel/supergroup we are an admin of, which will also assign some [boosts](https://core.telegram.org/api/boost) to it. Otherwise, the gift will be sent directly from the currently logged in user, and we will gain some extra [boost slots](https://core.telegram.org/api/boost). See [here](https://core.telegram.org/api/giveaways) for more info on giveaways and gifts.
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @message Message attached with the gift
 */
 inputStorePaymentPremiumGiftCode#fb790393 flags:# users:Vector<InputUser> boost_peer:flags.0?InputPeer currency:string amount:long message:flags.1?TextWithEntities = InputStorePaymentPurpose;
@@ -9876,7 +9996,7 @@ Used to pay for a [giveaway, see here](https://core.telegram.org/api/giveaways) 
 @random_id Random ID to avoid resending the giveaway
 @until_date The end date of the giveaway, must be at most [giveaway_period_max](https://core.telegram.org/api/config#giveaway-period-max) seconds in the future; see [here](https://core.telegram.org/api/giveaways) for more info on giveaways.
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 inputStorePaymentPremiumGiveaway#160544ca flags:# only_new_subscribers:flags.0?true winners_are_visible:flags.3?true boost_peer:InputPeer additional_peers:flags.1?Vector<InputPeer> countries_iso2:flags.2?Vector<string> prize_description:flags.4?string random_id:long until_date:int currency:string amount:long = InputStorePaymentPurpose;
 
@@ -9885,9 +10005,12 @@ Used to top up the [Telegram Stars balance](https://core.telegram.org/api/stars)
 
 @stars Amount of stars to topup
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@spend_purpose_peer  ... 
+
+#DocError
 */
-inputStorePaymentStarsTopup#dddd0f56 stars:long currency:string amount:long = InputStorePaymentPurpose;
+inputStorePaymentStarsTopup#f9a2a6cb flags:# stars:long currency:string amount:long spend_purpose_peer:flags.0?InputPeer = InputStorePaymentPurpose;
 
 /*
 Used to gift [Telegram Stars](https://core.telegram.org/api/stars) to a friend.
@@ -9895,7 +10018,7 @@ Used to gift [Telegram Stars](https://core.telegram.org/api/stars) to a friend.
 @user_id The user to which the stars should be gifted.
 @stars Amount of stars to gift
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 inputStorePaymentStarsGift#1d741ef7 user_id:InputUser stars:long currency:string amount:long = InputStorePaymentPurpose;
 
@@ -9912,22 +10035,12 @@ Used to pay for a [star giveaway, see here](https://core.telegram.org/api/giveaw
 @random_id Random ID to avoid resending the giveaway
 @until_date The end date of the giveaway, must be at most [giveaway_period_max](https://core.telegram.org/api/config#giveaway-period-max) seconds in the future; see [here](https://core.telegram.org/api/giveaways) for more info on giveaways.
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @users Number of winners.
 */
 inputStorePaymentStarsGiveaway#751f08fa flags:# only_new_subscribers:flags.0?true winners_are_visible:flags.3?true stars:long boost_peer:InputPeer additional_peers:flags.1?Vector<InputPeer> countries_iso2:flags.2?Vector<string> prize_description:flags.4?string random_id:long until_date:int currency:string amount:long users:int = InputStorePaymentPurpose;
 
-/*
-Telegram Premium gift option
-
-@months Duration of gifted Telegram Premium subscription
-@currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
-@bot_url An [invoice deep link](https://core.telegram.org/api/links#invoice-links) to an invoice for in-app payment, using the official Premium bot; may be empty if direct payment isn't available.
-@store_product An identifier for the App Store/Play Store product associated with the Premium gift.
-*/
-premiumGiftOption#74c34319 flags:# months:int currency:string amount:long bot_url:string store_product:flags.0?string = PremiumGiftOption;
-
+inputStorePaymentAuthCode#9bb2636d flags:# restore:flags.0?true phone_number:string phone_code_hash:string currency:string amount:long = InputStorePaymentPurpose;
 /*
 Represents an additional payment method
 
@@ -10084,7 +10197,7 @@ Describes a Telegram Premium subscription option
 @transaction Identifier of the last in-store transaction for the currently used subscription on the current account.
 @months Duration of subscription in months
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @bot_url [Deep link](https://core.telegram.org/api/links) used to initiate payment
 @store_product Store product ID, only for official apps
 */
@@ -10547,8 +10660,11 @@ Represents a [story](https://core.telegram.org/api/stories).
 @privacy [Privacy rules](https://core.telegram.org/api/privacy) indicating who can and can't view this story
 @views View date and reaction information
 @sent_reaction The reaction we sent.
+@albums  ... 
+
+#DocError
 */
-storyItem#79b26a24 flags:# pinned:flags.5?true public:flags.7?true close_friends:flags.8?true min:flags.9?true noforwards:flags.10?true edited:flags.11?true contacts:flags.12?true selected_contacts:flags.13?true out:flags.16?true id:int date:int from_id:flags.18?Peer fwd_from:flags.17?StoryFwdHeader expire_date:int caption:flags.0?string entities:flags.1?Vector<MessageEntity> media:MessageMedia media_areas:flags.14?Vector<MediaArea> privacy:flags.2?Vector<PrivacyRule> views:flags.3?StoryViews sent_reaction:flags.15?Reaction = StoryItem;
+storyItem#edf164f1 flags:# pinned:flags.5?true public:flags.7?true close_friends:flags.8?true min:flags.9?true noforwards:flags.10?true edited:flags.11?true contacts:flags.12?true selected_contacts:flags.13?true out:flags.16?true id:int date:int from_id:flags.18?Peer fwd_from:flags.17?StoryFwdHeader expire_date:int caption:flags.0?string entities:flags.1?Vector<MessageEntity> media:MessageMedia media_areas:flags.14?Vector<MediaArea> privacy:flags.2?Vector<PrivacyRule> views:flags.3?StoryViews sent_reaction:flags.15?Reaction albums:flags.19?Vector<int> = StoryItem;
 
 /*
 The list of active (or active and hidden) [stories](https://core.telegram.org/api/stories#watching-stories) has not changed.
@@ -10643,8 +10759,12 @@ Reply to a message.
 @quote_text Used to quote-reply to only a certain section (specified here) of the original message. The maximum UTF-8 length for quotes is specified in the [quote_length_max](https://core.telegram.org/api/config#quote-length-max) config key.
 @quote_entities [Message entities for styled text](https://core.telegram.org/api/entities) from the quote_text field.
 @quote_offset Offset of the message quote_text within the original message (in [UTF-16 code units](https://core.telegram.org/api/entities#entity-length)).
+@monoforum_peer_id  ... 
+@todo_item_id  ... 
+
+#DocError
 */
-inputReplyToMessage#22c0f6d5 flags:# reply_to_msg_id:int top_msg_id:flags.0?int reply_to_peer_id:flags.1?InputPeer quote_text:flags.2?string quote_entities:flags.3?Vector<MessageEntity> quote_offset:flags.4?int = InputReplyTo;
+inputReplyToMessage#869fbe10 flags:# reply_to_msg_id:int top_msg_id:flags.0?int reply_to_peer_id:flags.1?InputPeer quote_text:flags.2?string quote_entities:flags.3?Vector<MessageEntity> quote_offset:flags.4?int monoforum_peer_id:flags.5?InputPeer todo_item_id:flags.6?int = InputReplyTo;
 
 /*
 Reply to a story.
@@ -10654,6 +10774,7 @@ Reply to a story.
 */
 inputReplyToStory#5881323a peer:InputPeer story_id:int = InputReplyTo;
 
+inputReplyToMonoForum#69d66c45 monoforum_peer_id:InputPeer = InputReplyTo;
 /*
 Represents a [story deep link](https://core.telegram.org/api/stories#story-links).
 
@@ -10794,7 +10915,7 @@ Contains info about a [giveaway/gift](https://core.telegram.org/api/giveaways) o
 @store_product Identifier of the store product associated with the option, official apps only.
 @store_quantity Number of times the store product must be paid
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 premiumGiftCodeOption#257e962b flags:# users:int months:int store_product:flags.0?string store_quantity:flags.1?int currency:string amount:long = PremiumGiftCodeOption;
 
@@ -11080,6 +11201,7 @@ Represents a [saved dialog](https://core.telegram.org/api/saved-messages).
 */
 savedDialog#bd87cb6c flags:# pinned:flags.2?true peer:Peer top_message:int = SavedDialog;
 
+monoForumDialog#64407ea7 flags:# unread_mark:flags.3?true nopaid_messages_exception:flags.4?true peer:Peer top_message:int read_inbox_max_id:int read_outbox_max_id:int unread_count:int unread_reactions_count:int draft:flags.1?DraftMessage = SavedDialog;
 /*
 Represents some [saved message dialogs](https://core.telegram.org/api/saved-messages).
 
@@ -11337,11 +11459,13 @@ messages.quickRepliesNotModified#5f91eb5b = messages.QuickReplies;
 /*
 Contains info about a [connected business bot](https://core.telegram.org/api/business#connected-bots).
 
-@can_reply Whether the the bot can reply to messages it receives through the connection
 @bot_id ID of the connected bot
 @recipients Specifies the private chats that a [connected business bot](https://core.telegram.org/api/business#connected-bots) may receive messages and interact with.
+@rights  ... 
+
+#DocError
 */
-connectedBot#bd068601 flags:# can_reply:flags.0?true bot_id:long recipients:BusinessBotRecipients = ConnectedBot;
+connectedBot#cd64636c flags:# bot_id:long recipients:BusinessBotRecipients rights:BusinessBotRights = ConnectedBot;
 
 /*
 Info about currently connected [business bots](https://core.telegram.org/api/business#connected-bots).
@@ -11371,14 +11495,16 @@ birthday#6c8e1e06 flags:# day:int month:int year:flags.0?int = Birthday;
 /*
 Contains info about a [bot business connection](https://core.telegram.org/api/business#connected-bots).
 
-@can_reply Whether the bot can reply on behalf of the user to messages it receives through the business connection
 @disabled Whether this business connection is currently disabled
 @connection_id Business connection ID, used to identify messages coming from the connection and to reply to them as specified [here](https://core.telegram.org/api/business#connected-bots).
 @user_id ID of the user that the bot is connected to via this connection.
 @dc_id ID of the datacenter where to send queries wrapped in a [invokeWithBusinessConnection](https://core.telegram.org/method/invokeWithBusinessConnection) as specified [here](https://core.telegram.org/api/business#connected-bots).
 @date When was the connection created.
+@rights  ... 
+
+#DocError
 */
-botBusinessConnection#896433b4 flags:# can_reply:flags.0?true disabled:flags.1?true connection_id:string user_id:long dc_id:int date:int = BotBusinessConnection;
+botBusinessConnection#8f34b2f5 flags:# disabled:flags.1?true connection_id:string user_id:long dc_id:int date:int rights:flags.2?BusinessBotRights = BotBusinessConnection;
 
 /*
 [Telegram Business introduction](https://core.telegram.org/api/business#business-introduction).
@@ -11425,7 +11551,7 @@ Info about a [fragment collectible](https://core.telegram.org/api/fragment).
 
 @purchase_date Purchase date (unixtime)
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code for amount
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @crypto_currency Cryptocurrency name.
 @crypto_amount Price, in the smallest units of the cryptocurrency.
 @url [Fragment](https://fragment.com) URL with more info about the collectible
@@ -11588,62 +11714,6 @@ The sponsored message was reported successfully.
 channels.sponsoredMessageReportResultReported#ad798849 = channels.SponsoredMessageReportResult;
 
 /*
-[Channel revenue ad statistics, see here](https://core.telegram.org/api/revenue) for more info.
-
-@top_hours_graph Ad impressions graph
-@revenue_graph Ad revenue graph (in the smallest unit of the cryptocurrency in which revenue is calculated)
-@balances Current balance, current withdrawable balance and overall revenue
-@usd_rate Current conversion rate of the cryptocurrency ( not in the smallest unit) in which revenue is calculated to USD
-*/
-stats.broadcastRevenueStats#5407e297 top_hours_graph:StatsGraph revenue_graph:StatsGraph balances:BroadcastRevenueBalances usd_rate:double = stats.BroadcastRevenueStats;
-
-/*
-Contains the URL to use to [withdraw channel ad revenue](https://core.telegram.org/api/revenue#withdrawing-revenue).
-
-@url A unique URL to a Fragment page where the user will be able to specify and submit the address of the TON wallet where the funds will be sent.
-*/
-stats.broadcastRevenueWithdrawalUrl#ec659737 url:string = stats.BroadcastRevenueWithdrawalUrl;
-
-/*
-Describes earnings from sponsored messages in a channel in some time frame, see [here](https://core.telegram.org/api/revenue) for more info.
-
-@amount Amount in the smallest unit of the cryptocurrency.
-@from_date Start unixtime for the timeframe.
-@to_date End unixtime for the timeframe.
-*/
-broadcastRevenueTransactionProceeds#557e2cc4 amount:long from_date:int to_date:int = BroadcastRevenueTransaction;
-
-/*
-Describes a [withdrawal of ad earnings](https://core.telegram.org/api/revenue#withdrawing-revenue)
-
-@pending Whether the withdrawal is currently pending
-@failed Whether the withdrawal has failed
-@amount Amount withdrawn
-@date Withdrawal date
-@provider Payment provider name
-@transaction_date If neither pending nor failed are set, the transaction was completed successfully, and this field will contain the point in time (Unix timestamp) when the withdrawal was completed successfully.
-@transaction_url If neither pending nor failed are set, the transaction was completed successfully, and this field will contain a URL where the withdrawal transaction can be viewed.
-*/
-broadcastRevenueTransactionWithdrawal#5a590978 flags:# pending:flags.0?true failed:flags.2?true amount:long date:int provider:string transaction_date:flags.1?int transaction_url:flags.1?string = BroadcastRevenueTransaction;
-
-/*
-Describes a [refund for failed withdrawal of ad earnings](https://core.telegram.org/api/revenue#withdrawing-revenue)
-
-@amount Amount refunded.
-@date Date of refund.
-@provider Payment provider name.
-*/
-broadcastRevenueTransactionRefund#42d30d2e amount:long date:int provider:string = BroadcastRevenueTransaction;
-
-/*
-[Channel ad revenue transactions](https://core.telegram.org/api/revenue).
-
-@count Total number of transactions.
-@transactions Transactions
-*/
-stats.broadcastRevenueTransactions#87158466 count:int transactions:Vector<BroadcastRevenueTransaction> = stats.BroadcastRevenueTransactions;
-
-/*
 Receive notifications about reactions made only by our contacts.
 */
 reactionNotificationsFromContacts#bac3a61a = ReactionNotificationsFrom;
@@ -11662,16 +11732,6 @@ Reaction notification settings, see [here](https://core.telegram.org/api/reactio
 @show_previews If false, [push notifications](https://core.telegram.org/api/push-updates) about message/story reactions will only be of type REACT_HIDDEN/ REACT_STORY_HIDDEN, without any information about the reacted-to story or the reaction itself.
 */
 reactionsNotifySettings#56e34970 flags:# messages_notify_from:flags.0?ReactionNotificationsFrom stories_notify_from:flags.1?ReactionNotificationsFrom sound:NotificationSound show_previews:Bool = ReactionsNotifySettings;
-
-/*
-Describes [channel ad revenue balances](https://core.telegram.org/api/revenue).
-
-@withdrawal_enabled If set, the available balance can be [withdrawn](https://core.telegram.org/api/revenue#withdrawing-revenue).
-@current_balance Amount of not-yet-withdrawn cryptocurrency.
-@available_balance Amount of withdrawable cryptocurrency, out of the currently available balance ( available_balance <= current_balance).
-@overall_revenue Total amount of earned cryptocurrency.
-*/
-broadcastRevenueBalances#c3ff71e7 flags:# withdrawal_enabled:flags.0?true current_balance:long available_balance:long overall_revenue:long = BroadcastRevenueBalances;
 
 /*
 Represents a [message effect](https://core.telegram.org/api/effects).
@@ -11758,7 +11818,7 @@ starsTransactionPeerAPI#f9677aad = StarsTransactionPeer;
 @stars Amount of Telegram stars.
 @store_product Identifier of the store product associated with the option, official apps only.
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 starsTopupOption#bd915c0 flags:# extended:flags.1?true stars:long store_product:flags.0?string currency:string amount:long = StarsTopupOption;
 
@@ -11771,8 +11831,12 @@ Represents a [Telegram Stars transaction](https://core.telegram.org/api/stars).
 @gift This transaction was a gift from the user in peer.peer.
 @reaction This transaction is a [paid reaction](https://core.telegram.org/api/reactions#paid-reactions).
 @stargift_upgrade  ... 
+@business_transfer  ... 
+@stargift_resale  ... 
+@posts_search  ... 
+@stargift_prepaid_upgrade  ... 
 @id Transaction ID.
-@stars Amount of Stars (negative for outgoing transactions).
+@amount  ... 
 @date Date of the transaction (unixtime).
 @peer Source of the incoming transaction, or its recipient for outgoing transactions.
 @title For transactions with bots, title of the bought product.
@@ -11790,10 +11854,14 @@ Represents a [Telegram Stars transaction](https://core.telegram.org/api/stars).
 @starref_commission_permille This transaction is the receival (or refund) of an [affiliate commission](https://core.telegram.org/api/bots/referrals) (i.e. this is the transaction received by the peer that created the [referral link](https://core.telegram.org/api/links#referral-links), flag 17 is for transactions made by users that imported the referral link).
 @starref_peer For transactions made by [referred users](https://core.telegram.org/api/bots/referrals), the peer that received the affiliate commission.
 @starref_amount For transactions made by [referred users](https://core.telegram.org/api/bots/referrals), the amount of Telegram Stars received by the affiliate, can be negative for refunds.
+@paid_messages  ... 
+@premium_gift_months  ... 
+@ads_proceeds_from_date  ... 
+@ads_proceeds_to_date  ... 
 
 #DocError
 */
-starsTransaction#64dfc926 flags:# refund:flags.3?true pending:flags.4?true failed:flags.6?true gift:flags.10?true reaction:flags.11?true stargift_upgrade:flags.18?true id:string stars:StarsAmount date:int peer:StarsTransactionPeer title:flags.0?string description:flags.1?string photo:flags.2?WebDocument transaction_date:flags.5?int transaction_url:flags.5?string bot_payload:flags.7?bytes msg_id:flags.8?int extended_media:flags.9?Vector<MessageMedia> subscription_period:flags.12?int giveaway_post_id:flags.13?int stargift:flags.14?StarGift floodskip_number:flags.15?int starref_commission_permille:flags.16?int starref_peer:flags.17?Peer starref_amount:flags.17?StarsAmount = StarsTransaction;
+starsTransaction#13659eb0 flags:# refund:flags.3?true pending:flags.4?true failed:flags.6?true gift:flags.10?true reaction:flags.11?true stargift_upgrade:flags.18?true business_transfer:flags.21?true stargift_resale:flags.22?true posts_search:flags.24?true stargift_prepaid_upgrade:flags.25?true id:string amount:StarsAmount date:int peer:StarsTransactionPeer title:flags.0?string description:flags.1?string photo:flags.2?WebDocument transaction_date:flags.5?int transaction_url:flags.5?string bot_payload:flags.7?bytes msg_id:flags.8?int extended_media:flags.9?Vector<MessageMedia> subscription_period:flags.12?int giveaway_post_id:flags.13?int stargift:flags.14?StarGift floodskip_number:flags.15?int starref_commission_permille:flags.16?int starref_peer:flags.17?Peer starref_amount:flags.17?StarsAmount paid_messages:flags.19?int premium_gift_months:flags.20?int ads_proceeds_from_date:flags.23?int ads_proceeds_to_date:flags.23?int = StarsTransaction;
 
 /*
 Info about the current [Telegram Star subscriptions, balance and transaction history](https://core.telegram.org/api/stars#balance-and-transaction-history).
@@ -11852,11 +11920,14 @@ starsRevenueStatus#febe5491 flags:# withdrawal_enabled:flags.0?true current_bala
 /*
 [Star revenue statistics, see here](https://core.telegram.org/api/stars) for more info.
 
+@top_hours_graph  ... 
 @revenue_graph Star revenue graph (number of earned stars)
 @status Current balance, current withdrawable balance and overall earned Telegram Stars
 @usd_rate Current conversion rate of Telegram Stars to USD
+
+#DocError
 */
-payments.starsRevenueStats#c92bb73b revenue_graph:StatsGraph status:StarsRevenueStatus usd_rate:double = payments.StarsRevenueStats;
+payments.starsRevenueStats#6c207376 flags:# top_hours_graph:flags.0?StatsGraph revenue_graph:StatsGraph status:StarsRevenueStatus usd_rate:double = payments.StarsRevenueStats;
 
 /*
 Contains the URL to use to [withdraw Telegram Star revenue](https://core.telegram.org/api/stars#withdrawing-stars).
@@ -11887,7 +11958,7 @@ inputStarsTransaction#206ae6d1 flags:# refund:flags.0?true id:string = InputStar
 @stars Amount of Telegram stars.
 @store_product Identifier of the store product associated with the option, official apps only.
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 */
 starsGiftOption#5e0589f1 flags:# extended:flags.1?true stars:long store_product:flags.0?string currency:string amount:long = StarsGiftOption;
 
@@ -11961,7 +12032,7 @@ Contains info about a [Telegram Star giveaway](https://core.telegram.org/api/giv
 @yearly_boosts Number of times the chat will be boosted for one year if the [inputStorePaymentStarsGiveaway](https://core.telegram.org/constructor/inputStorePaymentStarsGiveaway). boost_peer flag is populated
 @store_product Identifier of the store product associated with the option, official apps only.
 @currency Three-letter ISO 4217 [currency](https://core.telegram.org/bots/payments#supported-currencies) code
-@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@amount Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 @winners Allowed options for the number of giveaway winners.
 */
 starsGiveawayOption#94ce852a flags:# extended:flags.0?true default:flags.1?true stars:long yearly_boosts:int store_product:flags.2?string currency:string amount:long winners:Vector<StarsGiveawayWinnersOption> = StarsGiveawayOption;
@@ -11981,21 +12052,30 @@ Represents a [star gift, see here](https://core.telegram.org/api/gifts) for more
 @limited Whether this is a limited-supply gift.
 @sold_out Whether this gift sold out and cannot be bought anymore.
 @birthday Whether this is a birthday-themed gift
+@require_premium  ... 
+@limited_per_user  ... 
 @id Identifier of the gift
 @sticker [Sticker](https://core.telegram.org/api/stickers) that represents the gift.
 @stars Price of the gift in [Telegram Stars](https://core.telegram.org/api/stars).
 @availability_remains For limited-supply gifts: the remaining number of gifts that may be bought.
 @availability_total For limited-supply gifts: the total number of gifts that was available in the initial supply.
+@availability_resale  ... 
 @convert_stars The receiver of this gift may convert it to this many Telegram Stars, instead of displaying it on their profile page. convert_stars will be equal to stars only if the gift was bought using recently bought Telegram Stars, otherwise it will be less than stars.
 @first_sale_date For sold out gifts only: when was the gift first bought.
 @last_sale_date For sold out gifts only: when was the gift last bought.
 @upgrade_stars  ... 
+@resell_min_stars  ... 
+@title  ... 
+@released_by  ... 
+@per_user_total  ... 
+@per_user_remains  ... 
+@locked_until_date  ... 
 
 #DocError
 */
-starGift#2cc73c8 flags:# limited:flags.0?true sold_out:flags.1?true birthday:flags.2?true id:long sticker:Document stars:long availability_remains:flags.0?int availability_total:flags.0?int convert_stars:long first_sale_date:flags.1?int last_sale_date:flags.1?int upgrade_stars:flags.3?long = StarGift;
+starGift#80ac53c3 flags:# limited:flags.0?true sold_out:flags.1?true birthday:flags.2?true require_premium:flags.7?true limited_per_user:flags.8?true id:long sticker:Document stars:long availability_remains:flags.0?int availability_total:flags.0?int availability_resale:flags.4?long convert_stars:long first_sale_date:flags.1?int last_sale_date:flags.1?int upgrade_stars:flags.3?long resell_min_stars:flags.4?long title:flags.5?string released_by:flags.6?Peer per_user_total:flags.8?int per_user_remains:flags.8?int locked_until_date:flags.9?int = StarGift;
 
-starGiftUnique#5c62d151 flags:# id:long title:string slug:string num:int owner_id:flags.0?Peer owner_name:flags.1?string owner_address:flags.2?string attributes:Vector<StarGiftAttribute> availability_issued:int availability_total:int gift_address:flags.3?string = StarGift;
+starGiftUnique#1befe865 flags:# require_premium:flags.6?true resale_ton_only:flags.7?true theme_available:flags.9?true id:long gift_id:long title:string slug:string num:int owner_id:flags.0?Peer owner_name:flags.1?string owner_address:flags.2?string attributes:Vector<StarGiftAttribute> availability_issued:int availability_total:int gift_address:flags.3?string resell_amount:flags.4?Vector<StarsAmount> released_by:flags.5?Peer value_amount:flags.8?long value_currency:flags.8?string theme_peer:flags.10?Peer = StarGift;
 /*
 The list of available [gifts](https://core.telegram.org/api/gifts) hasn't changed.
 */
@@ -12006,8 +12086,12 @@ Available [gifts](https://core.telegram.org/api/gifts).
 
 @hash [Hash used for caching, for more info click here](https://core.telegram.org/api/offsets#hash-generation)
 @gifts List of available gifts.
+@chats  ... 
+@users  ... 
+
+#DocError
 */
-payments.starGifts#901689ea hash:int gifts:Vector<StarGift> = payments.StarGifts;
+payments.starGifts#2ed82995 hash:int gifts:Vector<StarGift> chats:Vector<Chat> users:Vector<User> = payments.StarGifts;
 
 /*
 Report menu option
@@ -12120,6 +12204,7 @@ Describes a real (i.e. possibly decimal) amount of [Telegram Stars](https://core
 */
 starsAmount#bbb6b4a3 amount:long nanos:int = StarsAmount;
 
+starsTonAmount#74aee3e0 amount:long = StarsAmount;
 /*
 No new stickers were found for the specified query
 
@@ -12138,24 +12223,70 @@ messages.foundStickers#82c9e290 flags:# next_offset:flags.0?int hash:long sticke
 
 botVerifierSettings#b0cd6617 flags:# can_modify_custom_description:flags.1?true icon:long company:string custom_description:flags.0?string = BotVerifierSettings;
 botVerification#f93cd45c bot_id:long icon:long description:string = BotVerification;
-
 starGiftAttributeModel#39d99013 name:string document:Document rarity_permille:int = StarGiftAttribute;
 starGiftAttributePattern#13acff19 name:string document:Document rarity_permille:int = StarGiftAttribute;
-starGiftAttributeBackdrop#94271762 name:string center_color:int edge_color:int pattern_color:int text_color:int rarity_permille:int = StarGiftAttribute;
+starGiftAttributeBackdrop#d93d859c name:string backdrop_id:int center_color:int edge_color:int pattern_color:int text_color:int rarity_permille:int = StarGiftAttribute;
 starGiftAttributeOriginalDetails#e0bff26c flags:# sender_id:flags.0?Peer recipient_id:Peer date:int message:flags.1?TextWithEntities = StarGiftAttribute;
 payments.starGiftUpgradePreview#167bd90b sample_attributes:Vector<StarGiftAttribute> = payments.StarGiftUpgradePreview;
 users.users#62d706b8 users:Vector<User> = users.Users;
 users.usersSlice#315a4974 count:int users:Vector<User> = users.Users;
-payments.uniqueStarGift#caa2f60b gift:StarGift users:Vector<User> = payments.UniqueStarGift;
-messages.webPagePreview#b53e8b21 media:MessageMedia users:Vector<User> = messages.WebPagePreview;
-savedStarGift#6056dba5 flags:# name_hidden:flags.0?true unsaved:flags.5?true refunded:flags.9?true can_upgrade:flags.10?true from_id:flags.1?Peer date:int gift:StarGift message:flags.2?TextWithEntities msg_id:flags.3?int saved_id:flags.11?long convert_stars:flags.4?long upgrade_stars:flags.6?long can_export_at:flags.7?int transfer_stars:flags.8?long = SavedStarGift;
+payments.uniqueStarGift#416c56e8 gift:StarGift chats:Vector<Chat> users:Vector<User> = payments.UniqueStarGift;
+messages.webPagePreview#8c9a88ac media:MessageMedia chats:Vector<Chat> users:Vector<User> = messages.WebPagePreview;
+savedStarGift#19a9b572 flags:# name_hidden:flags.0?true unsaved:flags.5?true refunded:flags.9?true can_upgrade:flags.10?true pinned_to_top:flags.12?true upgrade_separate:flags.17?true from_id:flags.1?Peer date:int gift:StarGift message:flags.2?TextWithEntities msg_id:flags.3?int saved_id:flags.11?long convert_stars:flags.4?long upgrade_stars:flags.6?long can_export_at:flags.7?int transfer_stars:flags.8?long can_transfer_at:flags.13?int can_resell_at:flags.14?int collection_id:flags.15?Vector<int> prepaid_upgrade_hash:flags.16?string = SavedStarGift;
 payments.savedStarGifts#95f389b1 flags:# count:int chat_notifications_enabled:flags.1?Bool gifts:Vector<SavedStarGift> next_offset:flags.0?string chats:Vector<Chat> users:Vector<User> = payments.SavedStarGifts;
 inputSavedStarGiftUser#69279795 msg_id:int = InputSavedStarGift;
 inputSavedStarGiftChat#f101aa7f peer:InputPeer saved_id:long = InputSavedStarGift;
+inputSavedStarGiftSlug#2085c238 slug:string = InputSavedStarGift;
 payments.starGiftWithdrawalUrl#84aa3a9c url:string = payments.StarGiftWithdrawalUrl;
 paidReactionPrivacyDefault#206ad49e = PaidReactionPrivacy;
 paidReactionPrivacyAnonymous#1f0c1ad9 = PaidReactionPrivacy;
 paidReactionPrivacyPeer#dc6cfcf0 peer:InputPeer = PaidReactionPrivacy;
+account.paidMessagesRevenue#1e109708 stars_amount:long = account.PaidMessagesRevenue;
+requirementToContactEmpty#50a9839 = RequirementToContact;
+requirementToContactPremium#e581e4e9 = RequirementToContact;
+requirementToContactPaidMessages#b4f67e93 stars_amount:long = RequirementToContact;
+businessBotRights#a0624cf7 flags:# reply:flags.0?true read_messages:flags.1?true delete_sent_messages:flags.2?true delete_received_messages:flags.3?true edit_name:flags.4?true edit_bio:flags.5?true edit_profile_photo:flags.6?true edit_username:flags.7?true view_gifts:flags.8?true sell_gifts:flags.9?true change_gift_settings:flags.10?true transfer_and_upgrade_gifts:flags.11?true transfer_stars:flags.12?true manage_stories:flags.13?true = BusinessBotRights;
+disallowedGiftsSettings#71f276c4 flags:# disallow_unlimited_stargifts:flags.0?true disallow_limited_stargifts:flags.1?true disallow_unique_stargifts:flags.2?true disallow_premium_gifts:flags.3?true = DisallowedGiftsSettings;
+sponsoredPeer#c69708d3 flags:# random_id:bytes peer:Peer sponsor_info:flags.0?string additional_info:flags.1?string = SponsoredPeer;
+contacts.sponsoredPeersEmpty#ea32b4b1 = contacts.SponsoredPeers;
+contacts.sponsoredPeers#eb032884 peers:Vector<SponsoredPeer> chats:Vector<Chat> users:Vector<User> = contacts.SponsoredPeers;
+starGiftAttributeIdModel#48aaae3c document_id:long = StarGiftAttributeId;
+starGiftAttributeIdPattern#4a162433 document_id:long = StarGiftAttributeId;
+starGiftAttributeIdBackdrop#1f01c757 backdrop_id:int = StarGiftAttributeId;
+starGiftAttributeCounter#2eb1b658 attribute:StarGiftAttributeId count:int = StarGiftAttributeCounter;
+payments.resaleStarGifts#947a12df flags:# count:int gifts:Vector<StarGift> next_offset:flags.0?string attributes:flags.1?Vector<StarGiftAttribute> attributes_hash:flags.1?long chats:Vector<Chat> counters:flags.2?Vector<StarGiftAttributeCounter> users:Vector<User> = payments.ResaleStarGifts;
+stories.canSendStoryCount#c387c04e count_remains:int = stories.CanSendStoryCount;
+pendingSuggestion#e7e82e12 suggestion:string title:TextWithEntities description:TextWithEntities url:string = PendingSuggestion;
+todoItem#cba9a52f id:int title:TextWithEntities = TodoItem;
+todoList#49b92a26 flags:# others_can_append:flags.0?true others_can_complete:flags.1?true title:TextWithEntities list:Vector<TodoItem> = TodoList;
+todoCompletion#4cc120b7 id:int completed_by:long date:int = TodoCompletion;
+suggestedPost#e8e37e5 flags:# accepted:flags.1?true rejected:flags.2?true price:flags.3?StarsAmount schedule_date:flags.0?int = SuggestedPost;
+starsRating#1b0e4f07 flags:# level:int current_level_stars:long stars:long next_level_stars:flags.0?long = StarsRating;
+starGiftCollection#9d6b13b0 flags:# collection_id:int title:string icon:flags.0?Document gifts_count:int hash:long = StarGiftCollection;
+payments.starGiftCollectionsNotModified#a0ba4f17 = payments.StarGiftCollections;
+payments.starGiftCollections#8a2932f3 collections:Vector<StarGiftCollection> = payments.StarGiftCollections;
+storyAlbum#9325705a flags:# album_id:int title:string icon_photo:flags.0?Photo icon_video:flags.1?Document = StoryAlbum;
+stories.albumsNotModified#564edaeb = stories.Albums;
+stories.albums#c3987a3a hash:long albums:Vector<StoryAlbum> = stories.Albums;
+searchPostsFlood#3e0b5b6a flags:# query_is_free:flags.0?true total_daily:int remains:int wait_till:flags.1?int stars_amount:long = SearchPostsFlood;
+payments.uniqueStarGiftValueInfo#512fe446 flags:# last_sale_on_fragment:flags.1?true value_is_average:flags.6?true currency:string value:long initial_sale_date:int initial_sale_stars:long initial_sale_price:long last_sale_date:flags.0?int last_sale_price:flags.0?long floor_price:flags.2?long average_price:flags.3?long listed_count:flags.4?int fragment_listed_count:flags.5?int fragment_listed_url:flags.5?string = payments.UniqueStarGiftValueInfo;
+profileTabPosts#b98cd696 = ProfileTab;
+profileTabGifts#4d4bd46a = ProfileTab;
+profileTabMedia#72c64955 = ProfileTab;
+profileTabFiles#ab339c00 = ProfileTab;
+profileTabMusic#9f27d26e = ProfileTab;
+profileTabVoice#e477092e = ProfileTab;
+profileTabLinks#d3656499 = ProfileTab;
+profileTabGifs#a2c0f695 = ProfileTab;
+users.savedMusicNotModified#e3878aa4 count:int = users.SavedMusic;
+users.savedMusic#34a2f297 count:int documents:Vector<Document> = users.SavedMusic;
+account.savedMusicIdsNotModified#4fc81d6e = account.SavedMusicIds;
+account.savedMusicIds#998d6636 ids:Vector<long> = account.SavedMusicIds;
+payments.checkCanSendGiftResultOk#374fa7ad = payments.CheckCanSendGiftResult;
+payments.checkCanSendGiftResultFail#d5e58274 reason:TextWithEntities = payments.CheckCanSendGiftResult;
+inputChatThemeEmpty#83268483 = InputChatTheme;
+inputChatTheme#c93de95c emoticon:string = InputChatTheme;
+inputChatThemeUniqueGift#87e5dfe4 slug:string = InputChatTheme;
 ---functions---
 /*
 Invokes a query after successful completion of one of the previous queries.
@@ -13455,16 +13586,18 @@ account.updateBusinessAwayMessage#a26a7fa5 flags:# message:flags.0?InputBusiness
 /*
 Connect a [business bot](https://core.telegram.org/api/business#connected-bots) to the current account, or to change the current connection settings.
 
-@can_reply Whether the bot can reply to messages it receives from us, on behalf of us using the [business connection](https://core.telegram.org/api/business#connected-bots).
 @deleted Whether to fully disconnect the bot from the current account.
+@rights  ... 
 @bot The bot to connect or disconnect
 @recipients Configuration for the business connection
 
 $400, BotBusinessMissingError
 $400, BusinessRecipientsEmptyError
 $403, PremiumAccountRequiredError
+
+#DocError
 */
-account.updateConnectedBot#43d8521d flags:# can_reply:flags.0?true deleted:flags.1?true bot:InputUser recipients:InputBusinessBotRecipients = Updates;
+account.updateConnectedBot#66a08c7e flags:# deleted:flags.1?true rights:flags.0?BusinessBotRights bot:InputUser recipients:InputBusinessBotRecipients = Updates;
 
 /*
 List all currently connected [business bots](https://core.telegram.org/api/business#connected-bots)
@@ -13595,6 +13728,12 @@ Change the [reaction notification settings](https://core.telegram.org/api/reacti
 account.setReactionsNotifySettings#316ce548 settings:ReactionsNotifySettings = ReactionsNotifySettings;
 
 account.getCollectibleEmojiStatuses#2e7b4543 hash:long = account.EmojiStatuses;
+account.getPaidMessagesRevenue#19ba4a67 flags:# parent_peer:flags.0?InputPeer user_id:InputUser = account.PaidMessagesRevenue;
+account.toggleNoPaidMessagesException#fe2eda76 flags:# refund_charged:flags.0?true require_payment:flags.2?true parent_peer:flags.1?InputPeer user_id:InputUser = Bool;
+account.setMainProfileTab#5dee78b0 tab:ProfileTab = Bool;
+account.saveMusic#b26732a9 flags:# unsave:flags.0?true id:InputDocument after_id:flags.1?InputDocument = Bool;
+account.getSavedMusicIds#e09d5faf hash:long = account.SavedMusicIds;
+account.getUniqueGiftChatThemes#fe74ef9f offset:int limit:int hash:long = account.ChatThemes;
 /*
 Returns basic user info according to their identifiers.
 
@@ -13640,13 +13779,9 @@ $400, UserIdInvalidError
 */
 users.setSecureValueErrors#90c894b5 id:InputUser errors:Vector<SecureValueError> = Bool;
 
-/*
-Check whether we can write to the specified user (this method can only be called by non- [Premium](https://core.telegram.org/api/premium) users), see [here](https://core.telegram.org/api/privacy#require-premium-for-new-non-contact-users) for more info on the full flow.
-
-@id Users to fetch info about.
-*/
-users.getIsPremiumRequiredToContact#a622aa10 id:Vector<InputUser> = Vector<Bool>;
-
+users.getRequirementsToContact#d89a83a3 id:Vector<InputUser> = Vector<RequirementToContact>;
+users.getSavedMusic#788d7fe3 id:InputUser offset:int limit:int hash:long = users.SavedMusic;
+users.getSavedMusicByID#7573a4e9 id:InputUser documents:Vector<InputDocument> = users.SavedMusic;
 /*
 Get the telegram IDs of all contacts. 
 Returns an array of Telegram user IDs for all contacts (0 if a contact does not have an associated Telegram account or have hidden their account using privacy settings).
@@ -13896,6 +14031,7 @@ Fetch all users with birthdays that fall within +1/-1 days, relative to the curr
 */
 contacts.getBirthdays#daeda864 = contacts.ContactBirthdays;
 
+contacts.getSponsoredPeers#b6c8c393 q:string = contacts.SponsoredPeers;
 /*
 Returns the list of messages by their IDs.
 
@@ -14082,6 +14218,8 @@ Sends a message to a chat
 @send_as Send this message as the specified peer
 @quick_reply_shortcut Add the message to the specified [quick reply shortcut](https://core.telegram.org/api/business#quick-reply-shortcuts), instead.
 @effect Specifies a [message effect](https://core.telegram.org/api/effects) to use for the message.
+@allow_paid_stars  ... 
+@suggested_post  ... 
 
 $400, AdminRightsEmptyError
 $400, BotDomainInvalidError
@@ -14143,8 +14281,10 @@ $403, UserIsBlockedError
 $400, UserIsBotError
 $400, WcConvertUrlInvalidError
 $400, YouBlockedUserError
+
+#DocError
 */
-messages.sendMessage#983f9745 flags:# no_webpage:flags.1?true silent:flags.5?true background:flags.6?true clear_draft:flags.7?true noforwards:flags.14?true update_stickersets_order:flags.15?true invert_media:flags.16?true allow_paid_floodskip:flags.19?true peer:InputPeer reply_to:flags.0?InputReplyTo message:string random_id:long reply_markup:flags.2?ReplyMarkup entities:flags.3?Vector<MessageEntity> schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut effect:flags.18?long = Updates;
+messages.sendMessage#fe05dc9a flags:# no_webpage:flags.1?true silent:flags.5?true background:flags.6?true clear_draft:flags.7?true noforwards:flags.14?true update_stickersets_order:flags.15?true invert_media:flags.16?true allow_paid_floodskip:flags.19?true peer:InputPeer reply_to:flags.0?InputReplyTo message:string random_id:long reply_markup:flags.2?ReplyMarkup entities:flags.3?Vector<MessageEntity> schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut effect:flags.18?long allow_paid_stars:flags.21?long suggested_post:flags.22?SuggestedPost = Updates;
 
 /*
 Send a media
@@ -14169,6 +14309,8 @@ Send a media
 @send_as Send this message as the specified peer
 @quick_reply_shortcut Add the message to the specified [quick reply shortcut](https://core.telegram.org/api/business#quick-reply-shortcuts), instead.
 @effect Specifies a [message effect](https://core.telegram.org/api/effects) to use for the message.
+@allow_paid_stars  ... 
+@suggested_post  ... 
 
 $400, BotGamesDisabledError
 $400, BotPaymentsDisabledError
@@ -14264,8 +14406,10 @@ $400, WebpageMediaEmptyError
 $400, WebpageNotFoundError
 $400, WebpageUrlInvalidError
 $400, YouBlockedUserError
+
+#DocError
 */
-messages.sendMedia#7852834e flags:# silent:flags.5?true background:flags.6?true clear_draft:flags.7?true noforwards:flags.14?true update_stickersets_order:flags.15?true invert_media:flags.16?true allow_paid_floodskip:flags.19?true peer:InputPeer reply_to:flags.0?InputReplyTo media:InputMedia message:string random_id:long reply_markup:flags.2?ReplyMarkup entities:flags.3?Vector<MessageEntity> schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut effect:flags.18?long = Updates;
+messages.sendMedia#ac55d9c1 flags:# silent:flags.5?true background:flags.6?true clear_draft:flags.7?true noforwards:flags.14?true update_stickersets_order:flags.15?true invert_media:flags.16?true allow_paid_floodskip:flags.19?true peer:InputPeer reply_to:flags.0?InputReplyTo media:InputMedia message:string random_id:long reply_markup:flags.2?ReplyMarkup entities:flags.3?Vector<MessageEntity> schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut effect:flags.18?long allow_paid_stars:flags.21?long suggested_post:flags.22?SuggestedPost = Updates;
 
 /*
 Forwards messages by their IDs.
@@ -14284,10 +14428,13 @@ Forwards messages by their IDs.
 @random_id Random ID to prevent resending of messages
 @to_peer Destination peer
 @top_msg_id Destination [forum topic](https://core.telegram.org/api/forum#forum-topics)
+@reply_to  ... 
 @schedule_date Scheduled message date for scheduled messages
 @send_as Forward the messages as the specified peer
 @quick_reply_shortcut Add the messages to the specified [quick reply shortcut](https://core.telegram.org/api/business#quick-reply-shortcuts), instead.
 @video_timestamp  ... 
+@allow_paid_stars  ... 
+@suggested_post  ... 
 
 $400, BroadcastPublicVotersForbiddenError
 $400, ChannelInvalidError
@@ -14340,7 +14487,7 @@ $400, YouBlockedUserError
 
 #DocError
 */
-messages.forwardMessages#6d74da08 flags:# silent:flags.5?true background:flags.6?true with_my_score:flags.8?true drop_author:flags.11?true drop_media_captions:flags.12?true noforwards:flags.14?true allow_paid_floodskip:flags.19?true from_peer:InputPeer id:Vector<int> random_id:Vector<long> to_peer:InputPeer top_msg_id:flags.9?int schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut video_timestamp:flags.20?int = Updates;
+messages.forwardMessages#978928ca flags:# silent:flags.5?true background:flags.6?true with_my_score:flags.8?true drop_author:flags.11?true drop_media_captions:flags.12?true noforwards:flags.14?true allow_paid_floodskip:flags.19?true from_peer:InputPeer id:Vector<int> random_id:Vector<long> to_peer:InputPeer top_msg_id:flags.9?int reply_to:flags.22?InputReplyTo schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut video_timestamp:flags.20?int allow_paid_stars:flags.21?long suggested_post:flags.23?SuggestedPost = Updates;
 
 /*
 Report a new incoming chat for spam, if the [peer settings](https://core.telegram.org/constructor/peerSettings) of the chat allow us to do that
@@ -14983,6 +15130,7 @@ Send a result obtained using [messages.getInlineBotResults](https://core.telegra
 @schedule_date Scheduled message date for scheduled messages
 @send_as Send this message as the specified peer
 @quick_reply_shortcut Add the message to the specified [quick reply shortcut](https://core.telegram.org/api/business#quick-reply-shortcuts), instead.
+@allow_paid_stars  ... 
 
 $400, ChannelInvalidError
 $400, ChannelPrivateError
@@ -15021,8 +15169,10 @@ $400, VoiceMessagesForbiddenError
 $400, WebpageCurlFailedError
 $400, WebpageMediaEmptyError
 $400, YouBlockedUserError
+
+#DocError
 */
-messages.sendInlineBotResult#3ebee86a flags:# silent:flags.5?true background:flags.6?true clear_draft:flags.7?true hide_via:flags.11?true peer:InputPeer reply_to:flags.0?InputReplyTo random_id:long query_id:long id:string schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut = Updates;
+messages.sendInlineBotResult#c0cf7646 flags:# silent:flags.5?true background:flags.6?true clear_draft:flags.7?true hide_via:flags.11?true peer:InputPeer reply_to:flags.0?InputReplyTo random_id:long query_id:long id:string schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut allow_paid_stars:flags.21?long = Updates;
 
 /*
 Find out if a media message's caption can be edited
@@ -15180,12 +15330,15 @@ Save a message [draft](https://core.telegram.org/api/drafts) associated to a cha
 @entities Message [entities](https://core.telegram.org/api/entities) for styled text
 @media Attached media
 @effect Specifies a [message effect](https://core.telegram.org/api/effects) to use for the message.
+@suggested_post  ... 
 
 $400, EntityBoundsInvalidError
 $400, MsgIdInvalidError
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.saveDraft#d372c5ce flags:# no_webpage:flags.1?true invert_media:flags.6?true reply_to:flags.4?InputReplyTo peer:InputPeer message:string entities:flags.3?Vector<MessageEntity> media:flags.5?InputMedia effect:flags.7?long = Bool;
+messages.saveDraft#54ae308e flags:# no_webpage:flags.1?true invert_media:flags.6?true reply_to:flags.4?InputReplyTo peer:InputPeer message:string entities:flags.3?Vector<MessageEntity> media:flags.5?InputMedia effect:flags.7?long suggested_post:flags.8?SuggestedPost = Bool;
 
 /*
 Return all message [drafts](https://core.telegram.org/api/drafts). 
@@ -15530,6 +15683,7 @@ Send an [album or grouped media](https://core.telegram.org/api/files#albums-grou
 @send_as Send this message as the specified peer
 @quick_reply_shortcut Add the message to the specified [quick reply shortcut](https://core.telegram.org/api/business#quick-reply-shortcuts), instead.
 @effect Specifies a [message effect](https://core.telegram.org/api/effects) to use for the message.
+@allow_paid_stars  ... 
 
 $400, BusinessPeerInvalidError
 $400, ChannelInvalidError
@@ -15561,8 +15715,10 @@ $420, SlowmodeWaitError
 $400, TopicClosedError
 $400, TopicDeletedError
 $400, UserBannedInChannelError
+
+#DocError
 */
-messages.sendMultiMedia#37b74355 flags:# silent:flags.5?true background:flags.6?true clear_draft:flags.7?true noforwards:flags.14?true update_stickersets_order:flags.15?true invert_media:flags.16?true allow_paid_floodskip:flags.19?true peer:InputPeer reply_to:flags.0?InputReplyTo multi_media:Vector<InputSingleMedia> schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut effect:flags.18?long = Updates;
+messages.sendMultiMedia#1bf89d74 flags:# silent:flags.5?true background:flags.6?true clear_draft:flags.7?true noforwards:flags.14?true update_stickersets_order:flags.15?true invert_media:flags.16?true allow_paid_floodskip:flags.19?true peer:InputPeer reply_to:flags.0?InputReplyTo multi_media:Vector<InputSingleMedia> schedule_date:flags.10?int send_as:flags.13?InputPeer quick_reply_shortcut:flags.17?InputQuickReplyShortcut effect:flags.18?long allow_paid_stars:flags.21?long = Updates;
 
 /*
 Upload encrypted file and associate it to a secret chat
@@ -15592,16 +15748,23 @@ messages.getSplitRanges#1cff7e08 = Vector<MessageRange>;
 Manually mark dialog as unread
 
 @unread Mark as unread/read
+@parent_peer  ... 
 @peer Dialog
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.markDialogUnread#c286d98f flags:# unread:flags.0?true peer:InputDialogPeer = Bool;
+messages.markDialogUnread#8c5006f8 flags:# unread:flags.0?true parent_peer:flags.1?InputPeer peer:InputDialogPeer = Bool;
 
 /*
 Get dialogs manually marked as unread
+
+@parent_peer  ... 
+
+#DocError
 */
-messages.getDialogUnreadMarks#22e24e22 = Vector<DialogPeer>;
+messages.getDialogUnreadMarks#21202222 flags:# parent_peer:flags.0?InputPeer = Vector<DialogPeer>;
 
 /*
 Clear all [drafts](https://core.telegram.org/api/drafts).
@@ -15949,12 +16112,15 @@ messages.readDiscussion#f731a9f4 peer:InputPeer msg_id:int read_max_id:int = Boo
 
 @peer Chat where to unpin
 @top_msg_id [Forum topic](https://core.telegram.org/api/forum#forum-topics) where to unpin
+@saved_peer_id  ... 
 
 $400, ChatAdminRequiredError
 $400, ChatNotModifiedError
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.unpinAllMessages#ee22b9a8 flags:# peer:InputPeer top_msg_id:flags.0?int = messages.AffectedHistory;
+messages.unpinAllMessages#62dd747 flags:# peer:InputPeer top_msg_id:flags.0?int saved_peer_id:flags.1?InputPeer = messages.AffectedHistory;
 
 /*
 Delete a [chat](https://core.telegram.org/api/channel)
@@ -16164,13 +16330,15 @@ messages.checkHistoryImportPeer#5dc60f03 peer:InputPeer = messages.CheckedHistor
 Change the chat theme of a certain chat
 
 @peer Private chat where to change theme
-@emoticon Emoji, identifying a specific chat theme; a list of chat themes can be fetched using [account.getChatThemes](https://core.telegram.org/method/account.getChatThemes)
+@theme  ... 
 
 $400, EmojiInvalidError
 $400, EmojiNotModifiedError
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.setChatTheme#e63be13f peer:InputPeer emoticon:string = Updates;
+messages.setChatTheme#81202c9 peer:InputPeer theme:InputChatTheme = Updates;
 
 /*
 Get which users read a specific message: only available for groups and supergroups with less than [chat_read_mark_size_threshold members](https://core.telegram.org/api/config#chat-read-mark-size-threshold), read receipts will be stored for [chat_read_mark_expire_period seconds after the message was sent](https://core.telegram.org/api/config#chat-read-mark-expire-period), see [client configuration for more info](https://core.telegram.org/api/config#client-configuration).
@@ -16382,6 +16550,7 @@ Get unread reactions to messages you sent
 
 @peer Peer
 @top_msg_id If set, considers only reactions to messages within the specified [forum topic](https://core.telegram.org/api/forum#forum-topics)
+@saved_peer_id  ... 
 @offset_id [Offsets for pagination, for more info click here](https://core.telegram.org/api/offsets)
 @add_offset [Offsets for pagination, for more info click here](https://core.telegram.org/api/offsets)
 @limit Maximum number of results to return, [see pagination](https://core.telegram.org/api/offsets)
@@ -16389,18 +16558,23 @@ Get unread reactions to messages you sent
 @min_id Only return reactions for messages starting from this message ID
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.getUnreadReactions#3223495b flags:# peer:InputPeer top_msg_id:flags.0?int offset_id:int add_offset:int limit:int max_id:int min_id:int = messages.Messages;
+messages.getUnreadReactions#bd7f90ac flags:# peer:InputPeer top_msg_id:flags.0?int saved_peer_id:flags.1?InputPeer offset_id:int add_offset:int limit:int max_id:int min_id:int = messages.Messages;
 
 /*
 Mark [message reactions](https://core.telegram.org/api/reactions) as read
 
 @peer Peer
 @top_msg_id Mark as read only reactions to messages within the specified [forum topic](https://core.telegram.org/api/forum#forum-topics)
+@saved_peer_id  ... 
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.readReactions#54aa7f8e flags:# peer:InputPeer top_msg_id:flags.0?int = messages.AffectedHistory;
+messages.readReactions#9ec44f93 flags:# peer:InputPeer top_msg_id:flags.0?int saved_peer_id:flags.1?InputPeer = messages.AffectedHistory;
 
 /*
 View and search recently sent media. 
@@ -16741,17 +16915,21 @@ messages.searchEmojiStickerSets#92b4494c flags:# exclude_featured:flags.0?true q
 Returns the current saved dialog list, see [here](https://core.telegram.org/api/saved-messages) for more info.
 
 @exclude_pinned Exclude pinned dialogs
+@parent_peer  ... 
 @offset_date [Offsets for pagination, for more info click here](https://core.telegram.org/api/offsets)
 @offset_id [Offsets for pagination, for more info click here](https://core.telegram.org/api/offsets) ( top_message ID used for pagination)
 @offset_peer [Offset peer for pagination](https://core.telegram.org/api/offsets)
 @limit Number of list elements to be returned
 @hash [Hash used for caching, for more info click here](https://core.telegram.org/api/offsets#hash-generation)
+
+#DocError
 */
-messages.getSavedDialogs#5381d21a flags:# exclude_pinned:flags.0?true offset_date:int offset_id:int offset_peer:InputPeer limit:int hash:long = messages.SavedDialogs;
+messages.getSavedDialogs#1e91fc99 flags:# exclude_pinned:flags.0?true parent_peer:flags.1?InputPeer offset_date:int offset_id:int offset_peer:InputPeer limit:int hash:long = messages.SavedDialogs;
 
 /*
 Returns [saved messages](https://core.telegram.org/api/saved-messages) forwarded from a specific peer
 
+@parent_peer  ... 
 @peer Target peer
 @offset_id Only return messages starting from the specified message ID
 @offset_date Only return messages sent before the specified date
@@ -16762,20 +16940,25 @@ Returns [saved messages](https://core.telegram.org/api/saved-messages) forwarded
 @hash [Result hash](https://core.telegram.org/api/offsets)
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.getSavedHistory#3d9a414d peer:InputPeer offset_id:int offset_date:int add_offset:int limit:int max_id:int min_id:int hash:long = messages.Messages;
+messages.getSavedHistory#998ab009 flags:# parent_peer:flags.0?InputPeer peer:InputPeer offset_id:int offset_date:int add_offset:int limit:int max_id:int min_id:int hash:long = messages.Messages;
 
 /*
 Deletes messages forwarded from a specific peer to [saved messages](https://core.telegram.org/api/saved-messages).
 
+@parent_peer  ... 
 @peer Peer, whose messages will be deleted from [saved messages](https://core.telegram.org/api/saved-messages)
 @max_id Maximum ID of message to delete
 @min_date Delete all messages newer than this UNIX timestamp
 @max_date Delete all messages older than this UNIX timestamp
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-messages.deleteSavedHistory#6e98102b flags:# peer:InputPeer max_id:int min_date:flags.2?int max_date:flags.3?int = messages.AffectedHistory;
+messages.deleteSavedHistory#4dc5085f flags:# parent_peer:flags.0?InputPeer peer:InputPeer max_id:int min_date:flags.2?int max_date:flags.3?int = messages.AffectedHistory;
 
 /*
 Get pinned [saved dialogs, see here](https://core.telegram.org/api/saved-messages) for more info.
@@ -17033,36 +17216,36 @@ messages.getPaidReactionPrivacy#472455aa = Updates;
 /*
 Mark a specific [sponsored message](https://core.telegram.org/api/sponsored-messages) as read
 
-@peer The channel/bot where the ad is located
 @random_id The ad's unique ID.
 */
-messages.viewSponsoredMessage#673ad8f1 peer:InputPeer random_id:bytes = Bool;
+messages.viewSponsoredMessage#269e3643 random_id:bytes = Bool;
 
 /*
 Informs the server that the user has interacted with a sponsored message in [one of the ways listed here](https://core.telegram.org/api/sponsored-messages#clicking-on-sponsored-messages).
 
 @media The user clicked on the media
 @fullscreen The user expanded the video to full screen, and then clicked on it.
-@peer The channel/bot where the ad is located
 @random_id The ad's unique ID.
 */
-messages.clickSponsoredMessage#f093465 flags:# media:flags.0?true fullscreen:flags.1?true peer:InputPeer random_id:bytes = Bool;
+messages.clickSponsoredMessage#8235057e flags:# media:flags.0?true fullscreen:flags.1?true random_id:bytes = Bool;
 
 /*
 Report a [sponsored message](https://core.telegram.org/api/sponsored-messages), see [here](https://core.telegram.org/api/sponsored-messages#reporting-sponsored-messages) for more info on the full flow.
 
-@peer The channel/bot where the ad is located
 @random_id The ad's unique ID.
 @option Chosen report option, initially an empty string, see [here](https://core.telegram.org/api/sponsored-messages#reporting-sponsored-messages) for more info on the full flow.
 */
-messages.reportSponsoredMessage#1af3dbb8 peer:InputPeer random_id:bytes option:bytes = channels.SponsoredMessageReportResult;
+messages.reportSponsoredMessage#12cbf0c4 random_id:bytes option:bytes = channels.SponsoredMessageReportResult;
 
 /*
 Get a list of [sponsored messages for a peer, see here](https://core.telegram.org/api/sponsored-messages) for more info.
 
 @peer The currently open channel/bot.
+@msg_id  ... 
+
+#DocError
 */
-messages.getSponsoredMessages#9bd2f439 peer:InputPeer = messages.SponsoredMessages;
+messages.getSponsoredMessages#3d6ce850 flags:# peer:InputPeer msg_id:flags.0?int = messages.SponsoredMessages;
 
 /*
 Save a [prepared inline message](https://core.telegram.org/api/bots/inline#21-using-a-prepared-inline-message), to be shared by the user of the mini app using a [web_app_send_prepared_message event](https://core.telegram.org/api/web-events#web-app-send-prepared-message)
@@ -17104,6 +17287,11 @@ Search for stickers using AI-powered keyword search
 messages.searchStickers#29b1c66a flags:# emojis:flags.0?true q:string emoticon:string lang_code:Vector<string> offset:int limit:int hash:long = messages.FoundStickers;
 
 messages.reportMessagesDelivery#5a6d7395 flags:# push:flags.0?true peer:InputPeer id:Vector<int> = Bool;
+messages.getSavedDialogsByID#6f6f9c96 flags:# parent_peer:flags.1?InputPeer ids:Vector<InputPeer> = messages.SavedDialogs;
+messages.readSavedHistory#ba4a3b5b parent_peer:InputPeer peer:InputPeer max_id:int = Bool;
+messages.toggleTodoCompleted#d3e03124 peer:InputPeer msg_id:int completed:Vector<int> incompleted:Vector<int> = Updates;
+messages.appendTodoList#21a61057 peer:InputPeer msg_id:int list:Vector<TodoItem> = Updates;
+messages.toggleSuggestedPostApproval#8107455c flags:# reject:flags.1?true peer:InputPeer msg_id:int schedule_date:flags.0?int reject_comment:flags.2?string = Updates;
 /*
 Returns a current state of updates.
 
@@ -18232,12 +18420,15 @@ Enable or disable [forum functionality](https://core.telegram.org/api/forum) in 
 
 @channel Supergroup ID
 @enabled Enable or disable forum functionality
+@tabs  ... 
 
 $400, ChannelInvalidError
 $400, ChatDiscussionUnallowedError
 $400, ChatNotModifiedError
+
+#DocError
 */
-channels.toggleForum#a4298b29 channel:InputChannel enabled:Bool = Updates;
+channels.toggleForum#3ff75734 channel:InputChannel enabled:Bool tabs:Bool = Updates;
 
 /*
 Create a [forum topic](https://core.telegram.org/api/forum); requires [manage_topics rights](https://core.telegram.org/api/rights).
@@ -18460,13 +18651,22 @@ channels.restrictSponsoredMessages#9ae91519 channel:InputChannel restricted:Bool
 Globally search for posts from public [channels](https://core.telegram.org/api/channel) ( including those we aren't a member of) containing a specific hashtag.
 
 @hashtag The hashtag to search, without the # character.
+@query  ... 
 @offset_rate Initially 0, then set to the [next_rate parameter of messages.messagesSlice](https://core.telegram.org/constructor/messages.messagesSlice)
 @offset_peer [Offsets for pagination, for more info click here](https://core.telegram.org/api/offsets)
 @offset_id [Offsets for pagination, for more info click here](https://core.telegram.org/api/offsets)
 @limit Maximum number of results to return, [see pagination](https://core.telegram.org/api/offsets)
-*/
-channels.searchPosts#d19f987b hashtag:string offset_rate:int offset_peer:InputPeer offset_id:int limit:int = messages.Messages;
+@allow_paid_stars  ... 
 
+#DocError
+*/
+channels.searchPosts#f2c4f24d flags:# hashtag:flags.0?string query:flags.1?string offset_rate:int offset_peer:InputPeer offset_id:int limit:int allow_paid_stars:flags.2?long = messages.Messages;
+
+channels.updatePaidMessagesPrice#4b12327b flags:# broadcast_messages_allowed:flags.0?true channel:InputChannel send_paid_messages_stars:long = Updates;
+channels.toggleAutotranslation#167fc0a1 channel:InputChannel enabled:Bool = Updates;
+channels.getMessageAuthor#ece2a0e6 channel:InputChannel id:int = User;
+channels.checkSearchPostsFlood#22567115 flags:# query:flags.0?string = SearchPostsFlood;
+channels.setMainProfileTab#3583fcb1 channel:InputChannel tab:ProfileTab = Bool;
 /*
 Sends a custom request **for bots only**
 
@@ -18842,7 +19042,7 @@ Send compiled payment form
 @requested_info_id ID of saved and validated [order info](https://core.telegram.org/constructor/payments.validatedRequestedInfo)
 @shipping_option_id Chosen shipping option ID
 @credentials Payment credentials
-@tip_amount Tip, in the smallest units of the currency (integer, not float/double). For example, for a price of US$1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+@tip_amount Tip, in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in [currencies.json](https://core.telegram.org/bots/payments/currencies.json), it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
 
 $400, MessageIdInvalidError
 $400, PeerIdInvalidError
@@ -18910,15 +19110,6 @@ $400, DataJsonInvalidError
 payments.assignPlayMarketTransaction#dffd50d3 receipt:DataJSON purpose:InputStorePaymentPurpose = Updates;
 
 /*
-Checks whether Telegram Premium purchase is possible. Must be called before in-store Premium purchase, official apps only.
-
-@purpose Payment purpose
-
-$406, PremiumCurrentlyUnavailableError
-*/
-payments.canPurchasePremium#9fc19eb6 purpose:InputStorePaymentPurpose = Bool;
-
-/*
 Obtain a list of Telegram Premium [giveaway/gift code](https://core.telegram.org/api/giveaways) options.
 
 @boost_peer The channel that will start the giveaway
@@ -18975,11 +19166,14 @@ payments.getStarsTopupOptions#c00ec7d3 = Vector<StarsTopupOption>;
 /*
 Get the current [Telegram Stars balance](https://core.telegram.org/api/stars) of the current account (with peer= [inputPeerSelf](https://core.telegram.org/constructor/inputPeerSelf)), or the stars balance of the bot specified in peer.
 
+@ton  ... 
 @peer Peer of which to get the balance.
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-payments.getStarsStatus#104fcfa7 peer:InputPeer = payments.StarsStatus;
+payments.getStarsStatus#4ea9b3bf flags:# ton:flags.0?true peer:InputPeer = payments.StarsStatus;
 
 /*
 Fetch [Telegram Stars transactions](https://core.telegram.org/api/stars#balance-and-transaction-history).
@@ -18989,6 +19183,7 @@ Fetch [Telegram Stars transactions](https://core.telegram.org/api/stars#balance-
 @inbound If set, fetches only incoming transactions.
 @outbound If set, fetches only outgoing transactions.
 @ascending Return transactions in ascending order by date (instead of descending order by date).
+@ton  ... 
 @subscription_id If set, fetches only transactions for the specified [Telegram Star subscription](https://core.telegram.org/api/stars#star-subscriptions).
 @peer Fetch the transaction history of the peer ( [inputPeerSelf](https://core.telegram.org/constructor/inputPeerSelf) or a bot we own).
 @offset [Offset for pagination, obtained from the returned next_offset, initially an empty string](https://core.telegram.org/api/offsets).
@@ -18996,8 +19191,10 @@ Fetch [Telegram Stars transactions](https://core.telegram.org/api/stars#balance-
 
 $400, ChatAdminRequiredError
 $400, PeerIdInvalidError
+
+#DocError
 */
-payments.getStarsTransactions#69da4557 flags:# inbound:flags.0?true outbound:flags.1?true ascending:flags.2?true subscription_id:flags.3?string peer:InputPeer offset:string limit:int = payments.StarsStatus;
+payments.getStarsTransactions#69da4557 flags:# inbound:flags.0?true outbound:flags.1?true ascending:flags.2?true ton:flags.4?true subscription_id:flags.3?string peer:InputPeer offset:string limit:int = payments.StarsStatus;
 
 /*
 Make a payment using [Telegram Stars, see here](https://core.telegram.org/api/stars#using-stars) for more info.
@@ -19033,25 +19230,31 @@ payments.refundStarsCharge#25ae8f4a user_id:InputUser charge_id:string = Updates
 Get [Telegram Star revenue statistics](https://core.telegram.org/api/stars).
 
 @dark Whether to enable dark theme for graph colors
+@ton  ... 
 @peer Get statistics for the specified bot, channel or ourselves ( [inputPeerSelf](https://core.telegram.org/constructor/inputPeerSelf)).
 
 $400, PeerIdInvalidError
+
+#DocError
 */
-payments.getStarsRevenueStats#d91ffad6 flags:# dark:flags.0?true peer:InputPeer = payments.StarsRevenueStats;
+payments.getStarsRevenueStats#d91ffad6 flags:# dark:flags.0?true ton:flags.1?true peer:InputPeer = payments.StarsRevenueStats;
 
 /*
 Withdraw funds from a channel or bot's [star balance](https://core.telegram.org/api/stars#withdrawing-stars).
 
+@ton  ... 
 @peer Channel or bot from which to withdraw funds.
-@stars Amount of stars to withdraw.
+@amount  ... 
 @password 2FA password, see [here](https://core.telegram.org/api/srp#using-the-2fa-password) for more info.
 
 $400, PasswordHashInvalidError
 $400, PasswordMissingError
 $400, PasswordTooFreshError
 $400, SessionTooFreshError
+
+#DocError
 */
-payments.getStarsRevenueWithdrawalUrl#13bbe8b3 peer:InputPeer stars:long password:InputCheckPasswordSRP = payments.StarsRevenueWithdrawalUrl;
+payments.getStarsRevenueWithdrawalUrl#2433dc92 flags:# ton:flags.0?true peer:InputPeer amount:flags.1?long password:InputCheckPasswordSRP = payments.StarsRevenueWithdrawalUrl;
 
 /*
 Returns a URL for a Telegram Ad platform account that can be used to set up advertisements for channel/bot in peer, paid using the Telegram Stars owned by the specified peer, see [here](https://core.telegram.org/api/stars#paying-for-ads) for more info.
@@ -19066,13 +19269,16 @@ payments.getStarsRevenueAdsAccountUrl#d1d7efc5 peer:InputPeer = payments.StarsRe
 /*
 Obtain info about [Telegram Star transactions](https://core.telegram.org/api/stars#balance-and-transaction-history) using specific transaction IDs.
 
+@ton  ... 
 @peer Channel or bot.
 @id Transaction IDs.
 
 $400, PeerIdInvalidError
 $400, TransactionIdInvalidError
+
+#DocError
 */
-payments.getStarsTransactionsByID#27842d2e peer:InputPeer id:Vector<InputStarsTransaction> = payments.StarsStatus;
+payments.getStarsTransactionsByID#2dca16b8 flags:# ton:flags.0?true peer:InputPeer id:Vector<InputStarsTransaction> = payments.StarsStatus;
 
 /*
 Obtain a list of [Telegram Stars gift options](https://core.telegram.org/api/stars#buying-or-gifting-stars) as [starsGiftOption](https://core.telegram.org/constructor/starsGiftOption) constructors.
@@ -19218,10 +19424,21 @@ payments.getStarGiftUpgradePreview#9c9abcb1 gift_id:long = payments.StarGiftUpgr
 payments.upgradeStarGift#aed6e4f5 flags:# keep_original_details:flags.0?true stargift:InputSavedStarGift = Updates;
 payments.transferStarGift#7f18176a stargift:InputSavedStarGift to_id:InputPeer = Updates;
 payments.getUniqueStarGift#a1974d72 slug:string = payments.UniqueStarGift;
-payments.getSavedStarGifts#23830de9 flags:# exclude_unsaved:flags.0?true exclude_saved:flags.1?true exclude_unlimited:flags.2?true exclude_limited:flags.3?true exclude_unique:flags.4?true sort_by_value:flags.5?true peer:InputPeer offset:string limit:int = payments.SavedStarGifts;
+payments.getSavedStarGifts#a319e569 flags:# exclude_unsaved:flags.0?true exclude_saved:flags.1?true exclude_unlimited:flags.2?true exclude_unique:flags.4?true sort_by_value:flags.5?true exclude_upgradable:flags.7?true exclude_unupgradable:flags.8?true peer:InputPeer collection_id:flags.6?int offset:string limit:int = payments.SavedStarGifts;
 payments.getSavedStarGift#b455a106 stargift:Vector<InputSavedStarGift> = payments.SavedStarGifts;
 payments.getStarGiftWithdrawalUrl#d06e93a8 stargift:InputSavedStarGift password:InputCheckPasswordSRP = payments.StarGiftWithdrawalUrl;
 payments.toggleChatStarGiftNotifications#60eaefa1 flags:# enabled:flags.0?true peer:InputPeer = Bool;
+payments.toggleStarGiftsPinnedToTop#1513e7b0 peer:InputPeer stargift:Vector<InputSavedStarGift> = Bool;
+payments.canPurchaseStore#4fdc5ea7 purpose:InputStorePaymentPurpose = Bool;
+payments.getResaleStarGifts#7a5fa236 flags:# sort_by_price:flags.1?true sort_by_num:flags.2?true attributes_hash:flags.0?long gift_id:long attributes:flags.3?Vector<StarGiftAttributeId> offset:string limit:int = payments.ResaleStarGifts;
+payments.updateStarGiftPrice#edbe6ccb stargift:InputSavedStarGift resell_amount:StarsAmount = Updates;
+payments.createStarGiftCollection#1f4a0e87 peer:InputPeer title:string stargift:Vector<InputSavedStarGift> = StarGiftCollection;
+payments.updateStarGiftCollection#4fddbee7 flags:# peer:InputPeer collection_id:int title:flags.0?string delete_stargift:flags.1?Vector<InputSavedStarGift> add_stargift:flags.2?Vector<InputSavedStarGift> order:flags.3?Vector<InputSavedStarGift> = StarGiftCollection;
+payments.reorderStarGiftCollections#c32af4cc peer:InputPeer order:Vector<int> = Bool;
+payments.deleteStarGiftCollection#ad5648e8 peer:InputPeer collection_id:int = Bool;
+payments.getStarGiftCollections#981b91dd peer:InputPeer hash:long = payments.StarGiftCollections;
+payments.getUniqueStarGiftValueInfo#4365af6b slug:string = payments.UniqueStarGiftValueInfo;
+payments.checkCanSendGift#c0c4edc9 gift_id:long = payments.CheckCanSendGiftResult;
 /*
 Create a stickerset.
 
@@ -19390,7 +19607,6 @@ Start a telegram phone call
 
 @video Whether to start a video call
 @user_id Destination of the phone call
-@conference_call  ... 
 @random_id Random ID to avoid resending the same object
 @g_a_hash [Parameter for E2E encryption key exchange](https://core.telegram.org/api/end-to-end/voice-calls)
 @protocol Phone call settings
@@ -19401,10 +19617,8 @@ $400, ParticipantVersionOutdatedError
 $400, UserIdInvalidError
 $403, UserIsBlockedError
 $403, UserPrivacyRestrictedError
-
-#DocError
 */
-phone.requestCall#a6c4600c flags:# video:flags.0?true user_id:InputUser conference_call:flags.1?InputGroupCall random_id:int g_a_hash:bytes protocol:PhoneCallProtocol = phone.PhoneCall;
+phone.requestCall#42ff96ed flags:# video:flags.0?true user_id:InputUser random_id:int g_a_hash:bytes protocol:PhoneCallProtocol = phone.PhoneCall;
 
 /*
 Accept incoming call
@@ -19519,7 +19733,8 @@ Join a group call
 @call The group call
 @join_as Join the group call, presenting yourself as the specified user/channel
 @invite_hash The invitation hash from the [invite link](https://core.telegram.org/api/links#video-chat-livestream-links), if provided allows speaking in a livestream or muted group chat.
-@key_fingerprint  ... 
+@public_key  ... 
+@block  ... 
 @params WebRTC parameters
 
 $400, DataJsonInvalidError
@@ -19530,7 +19745,7 @@ $400, JoinAsPeerInvalidError
 
 #DocError
 */
-phone.joinGroupCall#d61e1df3 flags:# muted:flags.0?true video_stopped:flags.2?true call:InputGroupCall join_as:InputPeer invite_hash:flags.1?string key_fingerprint:flags.3?long params:DataJSON = Updates;
+phone.joinGroupCall#8fb53057 flags:# muted:flags.0?true video_stopped:flags.2?true call:InputGroupCall join_as:InputPeer invite_hash:flags.1?string public_key:flags.3?int256 block:flags.3?bytes params:DataJSON = Updates;
 
 /*
 Leave a group call
@@ -19769,7 +19984,12 @@ $400, CallPeerInvalidError
 */
 phone.saveCallLog#41248786 peer:InputPhoneCall file:InputFile = Bool;
 
-phone.createConferenceCall#dfc909ab peer:InputPhoneCall key_fingerprint:long = phone.PhoneCall;
+phone.createConferenceCall#7d0444bb flags:# muted:flags.0?true video_stopped:flags.2?true join:flags.3?true random_id:int public_key:flags.3?int256 block:flags.3?bytes params:flags.3?DataJSON = Updates;
+phone.deleteConferenceCallParticipants#8ca60525 flags:# only_left:flags.0?true kick:flags.1?true call:InputGroupCall ids:Vector<long> block:bytes = Updates;
+phone.sendConferenceCallBroadcast#c6701900 call:InputGroupCall block:bytes = Updates;
+phone.inviteConferenceCallParticipant#bcf22685 flags:# video:flags.0?true call:InputGroupCall user_id:InputUser = Updates;
+phone.declineConferenceCallInvite#3c479971 msg_id:int = Updates;
+phone.getGroupCallChainBlocks#ee9f88a6 call:InputGroupCall sub_chain_id:int offset:int limit:int = Updates;
 /*
 Get localization pack strings
 
@@ -19928,43 +20148,6 @@ $400, PeerIdInvalidError
 stats.getStoryPublicForwards#a6437ef6 peer:InputPeer id:int offset:string limit:int = stats.PublicForwards;
 
 /*
-Get [channel ad revenue statistics](https://core.telegram.org/api/revenue).
-
-@dark Whether to enable dark theme for graph colors
-@peer Get ad revenue stats for the specified channel or bot
-
-$400, ChannelInvalidError
-$400, ChatAdminRequiredError
-$400, PeerIdInvalidError
-*/
-stats.getBroadcastRevenueStats#f788ee19 flags:# dark:flags.0?true peer:InputPeer = stats.BroadcastRevenueStats;
-
-/*
-Withdraw funds from a channel's [ad revenue balance](https://core.telegram.org/api/revenue).
-
-@peer Get ad revenue withdrawal URL for the specified channel or bot
-@password 2FA password, see [here](https://core.telegram.org/api/srp#using-the-2fa-password) for more info.
-
-$400, PasswordHashInvalidError
-$400, PasswordMissingError
-$400, PasswordTooFreshError
-$400, SessionTooFreshError
-*/
-stats.getBroadcastRevenueWithdrawalUrl#9df4faad peer:InputPeer password:InputCheckPasswordSRP = stats.BroadcastRevenueWithdrawalUrl;
-
-/*
-Fetch [channel ad revenue transaction history](https://core.telegram.org/api/revenue).
-
-@peer Get ad revenue transactions for the specified channel or bot
-@offset [Offset for pagination](https://core.telegram.org/api/offsets)
-@limit Maximum number of results to return, [see pagination](https://core.telegram.org/api/offsets)
-
-$400, ChannelInvalidError
-$400, PeerIdInvalidError
-*/
-stats.getBroadcastRevenueTransactions#70990b6d peer:InputPeer offset:int limit:int = stats.BroadcastRevenueTransactions;
-
-/*
 Export a [folder](https://core.telegram.org/api/folders), creating a [chat folder deep link](https://core.telegram.org/api/links#chat-folder-links).
 
 @chatlist The folder to export
@@ -20108,7 +20291,7 @@ $400, StoriesTooMuchError
 $400, StorySendFloodMonthlyError
 $400, StorySendFloodWeeklyError
 */
-stories.canSendStory#c7dfdfdd peer:InputPeer = Bool;
+stories.canSendStory#30eb63f0 peer:InputPeer = stories.CanSendStoryCount;
 
 /*
 Uploads a [Telegram Story](https://core.telegram.org/api/stories).
@@ -20126,6 +20309,7 @@ Uploads a [Telegram Story](https://core.telegram.org/api/stories).
 @period Period after which the story is moved to archive (and to the profile if pinned is set), in seconds; must be one of 6 * 3600, 12 * 3600, 86400, or 2 * 86400 for Telegram Premium users, and 86400 otherwise.
 @fwd_from_id If set, indicates that this story is a repost of story with ID fwd_from_story posted by the peer in fwd_from_id.
 @fwd_from_story If set, indicates that this story is a repost of story with ID fwd_from_story posted by the peer in fwd_from_id.
+@albums  ... 
 
 $400, BoostsRequiredError
 $400, ImageProcessFailedError
@@ -20138,8 +20322,10 @@ $400, PremiumAccountRequiredError
 $400, StoriesTooMuchError
 $400, StoryPeriodInvalidError
 $400, VenueIdInvalidError
+
+#DocError
 */
-stories.sendStory#e4e6694b flags:# pinned:flags.2?true noforwards:flags.4?true fwd_modified:flags.7?true peer:InputPeer media:InputMedia media_areas:flags.5?Vector<MediaArea> caption:flags.0?string entities:flags.1?Vector<MessageEntity> privacy_rules:Vector<InputPrivacyRule> random_id:long period:flags.3?int fwd_from_id:flags.6?InputPeer fwd_from_story:flags.6?int = Updates;
+stories.sendStory#737fc2ec flags:# pinned:flags.2?true noforwards:flags.4?true fwd_modified:flags.7?true peer:InputPeer media:InputMedia media_areas:flags.5?Vector<MediaArea> caption:flags.0?string entities:flags.1?Vector<MessageEntity> privacy_rules:Vector<InputPrivacyRule> random_id:long period:flags.3?int fwd_from_id:flags.6?InputPeer fwd_from_story:flags.6?int albums:flags.8?Vector<int> = Updates;
 
 /*
 Edit an uploaded [story](https://core.telegram.org/api/stories)
@@ -20412,6 +20598,12 @@ $400, HashtagInvalidError
 */
 stories.searchPosts#d1810907 flags:# hashtag:flags.0?string area:flags.1?MediaArea peer:flags.2?InputPeer offset:string limit:int = stories.FoundStories;
 
+stories.createAlbum#a36396e5 peer:InputPeer title:string stories:Vector<int> = StoryAlbum;
+stories.updateAlbum#5e5259b6 flags:# peer:InputPeer album_id:int title:flags.0?string delete_stories:flags.1?Vector<int> add_stories:flags.2?Vector<int> order:flags.3?Vector<int> = StoryAlbum;
+stories.reorderAlbums#8535fbd9 peer:InputPeer order:Vector<int> = Bool;
+stories.deleteAlbum#8d3456d0 peer:InputPeer album_id:int = Bool;
+stories.getAlbums#25b3eac7 peer:InputPeer hash:long = stories.Albums;
+stories.getAlbumStories#ac806d61 peer:InputPeer album_id:int offset:int limit:int = stories.Stories;
 /*
 Obtains info about the boosts that were applied to a certain channel or supergroup (admins only)
 
@@ -20522,4 +20714,4 @@ $400, CollectibleNotFoundError
 */
 fragment.getCollectibleInfo#be1e85ba collectible:InputCollectible = fragment.CollectibleInfo;
 
-// @layer 199
+// @layer 214

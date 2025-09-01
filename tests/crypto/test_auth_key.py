@@ -86,4 +86,4 @@ def test_msg_key_mismatch_detection(auth_key):
 
     encrypted[8:24] = os.urandom(16)
     with pytest.raises(SecurityError, match='msg_key mismatch'):
-        key.decrypt(encrypted)
+        key.decrypt(bytes(encrypted))

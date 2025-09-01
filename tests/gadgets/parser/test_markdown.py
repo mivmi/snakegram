@@ -21,10 +21,10 @@ def test_parse_markdown_precode():
     text = "```python\ndef __init__(self):\n\tprint('test')\n```"
     plain_text, entities = parse_markdown(text)
 
-    assert plain_text == text[10:-3]
+    assert plain_text == text[10:-4]
 
     assert len(entities) == 1
     entity = entities[0]
 
-    assert entity.lang_code == 'python'
+    assert entity.data == 'python'
     assert entity.type.name == 'PreCode'

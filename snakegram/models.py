@@ -1,6 +1,7 @@
 import asyncio
 import typing as t
 import threading
+from urllib.parse import urlparse, parse_qs, unquote
 
 from . import enums, errors
 from .tl import types
@@ -12,6 +13,119 @@ if t.TYPE_CHECKING:
     from .network.utils import Request
     from .gadgets.byteutils import TLObject
 
+
+class Proxy:
+    def __repr__(self):
+        return self.to_string()
+
+    def to_dict(self):
+        return {
+            'type': self.type,
+            'host': self.host,
+            'port': self.port,
+            'secret': self.secret,
+            'username': self.username,
+            'password': self.password,
+            'rdns': self.rdns
+        }
+
+    def to_string(self, indent: t.Optional[int] = None):
+        return to_string(self, indent)
+
+    def __init__(
+        self,
+        type: t.Union[str, enums.ProxyType],
+        host: str,
+        port: int,
+        *,
+        secret: t.Optional[str] = None,
+        username: t.Optional[str] = None,
+        password: t.Optional[str] = None,
+        rdns: bool = True
+    ):
+
+        self.type = (
+            enums.ProxyType(type.lower()) 
+            if isinstance(type, str) else
+            type
+        )
+        self.host = host
+        self.port = port
+
+        self.secret = secret
+        self.username = username
+        self.password = password
+        self.rdns = rdns
+
+    @classmethod
+    def from_url(cls, url: t.Union[str, bytes]):
+        if isinstance(url, bytes):
+            url = url.decode('utf-8')
+
+        if url.startswith('tg://'):
+            url = 'https://t.me/' + url[5:]
+
+        parsed = urlparse(url)
+        scheme, netloc, path = (
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            parsed.path.lower()
+        )
+
+        params = parse_qs(parsed.query)
+            
+        def _get_first(key: str) -> t.Optional[str]:
+            return params.get(key, [None])[0]
+
+        # telegram style
+        if scheme == 'https' and netloc == 't.me':
+            host = _get_first('server')
+            port = int(_get_first('port'))
+
+            if path == '/proxy':  # MTProto
+                secret = _get_first('secret')
+                if secret is not None:
+                    return cls(
+                        enums.ProxyType.MTProto,
+                        host,
+                        port,
+                        secret=secret
+                    )
+
+            elif path == '/socks':  # socks5
+                return cls(
+                    enums.ProxyType.SOCKS5,
+                    host,
+                    port,
+                    username=_get_first('user'),
+                    password=_get_first('pass'),
+                )
+            raise ValueError('Invalid proxy URL.')
+
+        try:
+            rename = {
+                'socks': 'socks5'
+            }
+            type_ = enums.ProxyType(rename.get(scheme, scheme))
+
+        except ValueError:
+            raise ValueError(f'Unsupported proxy scheme: {scheme!r}')
+
+        return cls(
+            type_,
+            parsed.hostname,
+            int(parsed.port),
+            username=(
+                unquote(parsed.username)
+                if parsed.username else None
+            ),
+            password=(
+                unquote(parsed.password)
+                if parsed.password else None
+            )
+        )
+
+#
 class FileInfo:
     def __repr__(self):
         return self.to_string()

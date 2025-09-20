@@ -61,7 +61,6 @@ else:
 
 def get_dc_name(dc_id: int):
     """get the dc `name` from its `dc_id`."""
-
     names = {
         1: 'pluto',
         2: 'venus',
@@ -75,9 +74,10 @@ def get_dc_address(
     dc_id: int,
     is_cdn: bool,
     is_media: bool,
+    *,
     force_ipv6: bool = False
-) -> t.List[t.Tuple[str, int, t.Optional[str]]]:
-    """Return a list of (`ip`, `port`, `secret`) tuples for the given dc."""
+) -> t.List[t.Tuple[str, int]]:
+    """Return a list of (`ip`, `port`) tuples for the given dc."""
 
     if is_cdn:
         target = (
@@ -105,42 +105,60 @@ def get_dc_address(
     result = []
     for item in target[dc_id]:
         if isinstance(item, str):
-            # if only an `ip` is given, fill in default port and no secret
-            item = (item, DEFAULT_DC_PORT, None)
+            item = (item, DEFAULT_DC_PORT)
 
         result.append(item)
-            
+    
+    if not result:
+        raise RuntimeError(
+            f'No suitable address found for dc_id={dc_id}'
+        )
+
     return result
 
 # https://core.telegram.org/mtproto/transports#uri-format
 def get_dc_url_format(
     dc_id: int,
+    *,
+    domain: bool = True,
     ws: bool = False,
     cors: bool = False,
     secure: bool = False,
-    extended_limit: bool = True,
-    ip_address: t.Optional[str] = None,
+    extended_limit: bool = True
 ) -> alias.URL:
-    """build the `URL` for a dc with optional flags."""
 
-    # URL path (e.g. /apiws or /api_test)
-    url_path = (
-        'api'
-        + ('w' if cors else '')
-        + ('s' if ws else '')
-        + ('_test' if TEST_MODE and not ip_address else '')
-    )
+    ip_address = None
+    if not domain:
+        result = get_dc_address(dc_id, False, False)
+        ip_address = result[0][0]
+
+    url_path = 'api'
+    if cors:
+        url_path += 'w'
+
+    if ws:
+        url_path += 's'
+
+    if TEST_MODE and domain and not ip_address:
+        url_path += '_test'
+
+
+    port = 443 if secure else 80
+    protocol = 'ws' if ws else 'http'
+    if secure:
+        protocol += 's'
+    
+    if ws and not secure and domain:
+        raise RuntimeError(
+            'Plain WebSocket (`ws://`) with domain is not supported'
+        )
 
     if ip_address:
-        return f'http://{ip_address}:80/{url_path}'
-    
-    else:
-        name = get_dc_name(dc_id)
-        dc_name = f'{name}-1' if extended_limit else name
+        return f'{protocol}://{ip_address}/{url_path}'
 
-        protocol, port = ('https', 443) if secure else ('http', 80)
-    
-        return f'{protocol}://{dc_name}.web.telegram.org:{port}/{url_path}'
+    name = get_dc_name(dc_id)
+    subdomain = f'{name}-1' if extended_limit else name
+    return f'{protocol}://{subdomain}.web.telegram.org:{port}/{url_path}'
 
 
 def update_dc_address(dc_options: t.List['DcOption']):
@@ -175,8 +193,4 @@ def update_dc_address(dc_options: t.List['DcOption']):
         if dc.id not in target:
             target[dc.id] = set()
 
-        if dc.port == DEFAULT_DC_PORT:
-            target[dc.id].add(dc.ip_address)
-
-        else:
-            target[dc.id].add((dc.ip_address, dc.port, dc.secret))
+        target[dc.id].add((dc.ip_address, dc.port))

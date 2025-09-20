@@ -65,7 +65,6 @@ fn is_prime(n: BigInt, trials: u32) -> bool {
     true
 }
 
-
 #[pyfunction]
 pub fn factorization(pq: i64) -> (i64, i64) {
     if pq <= 2 {

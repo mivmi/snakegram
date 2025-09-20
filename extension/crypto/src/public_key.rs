@@ -121,7 +121,6 @@ impl PublicKey {
                         let mut padding = vec![0u8; padding_length];
                         rng.fill_bytes(&mut padding);
                         buffer.extend_from_slice(&padding);
-
                     }
                 }
 

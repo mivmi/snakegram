@@ -1,49 +1,23 @@
 use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, KeyIvInit, StreamCipher};
+use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes, PyResult};
 use rand::RngCore;
 use sha1::{Digest, Sha1};
 
-type Aes256Ctr = ctr::Ctr128BE<aes::Aes256>;
-
-pub fn ctr256(data: &[u8], key: &[u8], nonce: &[u8]) -> Result<Vec<u8>, String> {
-    if key.len() != 32 {
-        let message = format!("Invalid key length: expected 32 bytes, got {}", key.len());
-
-        return Err(message);
-    };
-
-    if nonce.len() != 16 {
-        let message = format!(
-            "Invalid nonce length: expected 16 bytes, got {}",
-            nonce.len()
-        );
-        return Err(message);
-    };
-    let key = GenericArray::from_slice(key);
-    let nonce = GenericArray::from_slice(nonce);
-    let mut buffer = data.to_vec();
-
-    let mut cipher = Aes256Ctr::new(&key, &nonce);
-    cipher.apply_keystream(&mut buffer);
-
-    Ok(buffer)
-}
+type Aes256CtrBE = ctr::Ctr128BE<aes::Aes256>;
 
 pub fn ige256_encrypt(
     plain_text: &[u8],
     key: &[u8],
     iv: &[u8],
     hash: bool,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, &'static str> {
     if key.len() != 32 {
-        let message = format!("Invalid key length: expected 32 bytes, got {}", key.len());
-
-        return Err(message);
+        return Err("Invalid key length: Key must be 32 bytes");
     };
 
     if iv.len() != 32 {
-        let message = format!("Invalid iv length: expected 32 bytes, got {}", iv.len());
-        return Err(message);
+        return Err("Invalid iv length: Iv must be 32 bytes");
     };
 
     let key = GenericArray::from_slice(key);
@@ -182,4 +156,84 @@ pub fn ige256_decrypt(
     };
 
     Ok(result)
+}
+
+#[pyclass]
+pub struct Aes256Ctr {
+    cipher: Aes256CtrBE,
+}
+
+#[pymethods]
+impl Aes256Ctr {
+    #[new]
+    fn new(key: &[u8], nonce: &[u8]) -> PyResult<Self> {
+        if key.len() != 32 {
+            return Err(PyValueError::new_err(
+                "Invalid key length: Key must be 32 bytes",
+            ));
+        }
+        if nonce.len() != 16 {
+            return Err(PyValueError::new_err(
+                "Invalid nonce length: Nonce must be 16 bytes",
+            ));
+        }
+
+        let key = GenericArray::from_slice(key);
+        let nonce = GenericArray::from_slice(nonce);
+
+        Ok(Aes256Ctr {
+            cipher: Aes256CtrBE::new(&key, &nonce),
+        })
+    }
+
+    #[pyo3(signature = (data))]
+    fn __call__(&mut self, data: &[u8]) -> PyResult<Py<PyBytes>> {
+        let mut buf = data.to_vec();
+        self.cipher.apply_keystream(&mut buf);
+        Python::with_gil(|py| Ok(PyBytes::new(py, &buf).into()))
+    }
+}
+
+#[pyclass]
+pub struct Aes256Ige {
+    key: Vec<u8>,
+    iv: Vec<u8>,
+}
+
+#[pymethods]
+impl Aes256Ige {
+    #[new]
+    fn new(key: &[u8], iv: &[u8]) -> PyResult<Self> {
+        if key.len() != 32 {
+            return Err(PyValueError::new_err(
+                "Invalid key length: Key must be 32 bytes",
+            ));
+        }
+        if iv.len() != 32 {
+            return Err(PyValueError::new_err(
+                "Invalid iv length: Iv must be 32 bytes",
+            ));
+        }
+
+        Ok(Aes256Ige {
+            key: key.to_vec(),
+            iv: iv.to_vec(),
+        })
+    }
+
+    #[pyo3(signature = (plain_text, hash=false))]
+    fn encrypt(&mut self, plain_text: &[u8], hash: bool) -> PyResult<Py<PyBytes>> {
+        match ige256_encrypt(&plain_text, &self.key, &self.iv, hash) {
+            Ok(v) => Python::with_gil(|py| Ok(PyBytes::new(py, &v).into())),
+            Err(e) => Err(PyValueError::new_err(e)),
+        }
+    }
+
+    #[pyo3(signature = (cipher_text, hash=false))]
+    fn decrypt(&mut self, cipher_text: &[u8], hash: bool) -> PyResult<Py<PyBytes>> {
+        match ige256_decrypt(&cipher_text, &self.key, &self.iv, hash) {
+            Ok(v) => Python::with_gil(|py| Ok(PyBytes::new(py, &v).into())),
+            Err(e) => Err(PyValueError::new_err(e)),
+        }
+    }
 }

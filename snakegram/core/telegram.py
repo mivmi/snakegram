@@ -10,9 +10,9 @@ from .handlers import Router, Handler, MainRouter
 from .internal import CacheEntities
 from ._system import system_routers
 
-from .. import about, errors, helpers
+from .. import alias, about, errors, helpers
 from ..enums import EventType
-from ..models import EventExtra, UpdateTracker
+from ..models import Proxy, EventExtra, UpdateTracker
 
 from ..tl import LAYER, types, functions
 from ..crypto import get_public_key, add_public_key
@@ -24,9 +24,7 @@ from ..session.abstract import AbstractSession, AbstractPfsSession
 
 from ..network import Connection, MediaConnection, datacenter
 from ..network.utils import Request
-from ..network.codec import AbridgedCodec
-from ..network.transport import TcpTransport
-from ..network.transport.abstract import AbstractTransport
+from ..network.transport import auto_transport_factory
 
 
 if t.TYPE_CHECKING:
@@ -38,7 +36,6 @@ P = te.ParamSpec('P')
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_TRANSPORT = TcpTransport(codec=AbridgedCodec())
 DEFAULT_SESSION_CLASS = SqliteSession
 DEFAULT_PFS_SESSION_CLASS = MemoryPfsSession
 
@@ -60,8 +57,11 @@ class Telegram(Methods):
         system_version: str = None,
         system_lang_code: str = 'en',
         params: t.Optional[dict] = None,
-        transport: AbstractTransport = DEFAULT_TRANSPORT,
         drop_update: bool = False,
+
+        proxy: t.Optional[Proxy] = None,
+        use_ipv6: bool = False,
+        transport_factory: alias.TransportFactory = auto_transport_factory,
         perfect_forward_secrecy: t.Union[str, bool, AbstractPfsSession] = False
     ):
 
@@ -113,12 +113,19 @@ class Telegram(Methods):
         self._extra = EventExtra()
         self._main_router = MainRouter(self, system_routers)
         self._main_router.add_router(*routers)
+        
+        self._proxy = proxy
+        self._use_ipv6 = use_ipv6
+        self._transport_factory = transport_factory
+        #
 
         self.session = session
-        self.connection = Connection(
+        self._connection = Connection(
             session,
-            transport.spawn(),
             pfs_session,
+            transport_factory,
+            proxy=proxy,
+            use_ipv6=use_ipv6,
             event_callback=self._main_router,
             updates_callback=self._updates_dispatcher,
             init_connection_callback=self._init_connection_callback
@@ -145,7 +152,7 @@ class Telegram(Methods):
     def __call__(self, *queries: TLObject[T], ordered: bool = False) -> t.Tuple[Request[T], ...]: ...
 
     def __call__(self, *queries: TLObject[T], ordered: bool = False):
-        return self.connection.invoke(
+        return self._connection.invoke(
             *queries,
             ordered=ordered
         )
@@ -157,20 +164,57 @@ class Telegram(Methods):
 
     # connection
     def is_connected(self):
-        return self.connection.is_connected()
+        return self._connection.is_connected()
 
     @adaptive
     async def connect(self):
-        await self.connection.connect()
+        await self._connection.connect()
 
+    @adaptive
+    async def reconnect(self):
+        results = await asyncio.gather(
+            *(
+                conn.reconnect()
+                for conn in self._media_connections.values()
+            ),
+            return_exceptions=True
+        )
+
+        for item in results:
+            if isinstance(item, Exception):
+                logger.warning('Media connection reconnect failed: %s', item)
+
+        try:
+            await self._connection.reconnect()
+
+        except Exception as exc:
+            logger.error('connection reconnect failed: %s', exc)
+            raise
+
+    @adaptive
     async def disconnect(self):
-        await self.connection.disconnect()
+        await self._connection.disconnect()
+
+    @adaptive
+    async def set_proxy(self, proxy: Proxy):
+        self._proxy = proxy
+        self._connection._proxy = proxy
+
+        for conn in self._media_connections.values():
+            conn._proxy = proxy
+
+        if self.is_connected():
+            logger.info(
+                'proxy changed while connected. '
+                'reconnect to apply the new settings.'
+            )
+            await self.reconnect()
 
     @adaptive
     async def wait_until_disconnected(self):
         try:
-            if self.connection._future:
-                await self.connection._future
+            if self._connection._future:
+                await self._connection._future
         
         finally:
             self._save_state_and_entities()
@@ -186,18 +230,17 @@ class Telegram(Methods):
         if connection is None:
             if self.session.dc_id == dc_id:
                 session = self.session
-            
+
             else:
                 session = MemorySession()
-            
-            transport = self.connection.transport.spawn()
-    
+
             connection = MediaConnection(
                 session,
-                transport,
+                self._transport_factory,
                 dc_id=dc_id,
                 is_cdn=is_cdn,
-                use_ipv6=self.connection.use_ipv6,
+                use_ipv6=self._use_ipv6,
+                proxy=self._proxy,
                 event_callback=self._main_router,
                 public_key_getter=self._find_cdn_public_key,
                 init_connection_callback=self._init_connection_callback
@@ -207,7 +250,6 @@ class Telegram(Methods):
         await connection.connect()
         return connection
 
-        
     # privates
     def _save_state_and_entities(self):
         for _, item in self._entities:
@@ -240,12 +282,12 @@ class Telegram(Methods):
             return get_public_key(fingerprints)
 
     async def _init_connection_callback(self, connection: Connection):
-        if connection.is_cdn:
+        if connection._is_cdn:
             # no need to send `InitConnection`  for `cdn` connections
             return 
 
         if (
-            connection.is_media
+            connection._is_media
             and
             self.session.dc_id != connection.state.dc_id
         ):
@@ -264,6 +306,15 @@ class Telegram(Methods):
         else:
             init_query = functions.help.GetConfig()
 
+        if self._proxy and self._proxy.secret is not None:
+            proxy = types.InputClientProxy(
+                self._proxy.host,
+                self._proxy.port
+            )
+
+        else:
+            proxy = None
+
         tz_offset = self.session.time_offset
         self.params.update({'tz_offset': tz_offset})
 
@@ -279,7 +330,8 @@ class Telegram(Methods):
                     lang_pack=self.lang_pack,
                     lang_code=self.lang_code,
                     params=helpers.parse_json(self.params),
-                    query=init_query
+                    query=init_query,
+                    proxy=proxy
                 )
             )
         )

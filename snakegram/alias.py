@@ -1,9 +1,26 @@
+from __future__ import annotations
+
 import datetime
 import typing as t
 from pathlib import Path
 
 from .tl import types # type: ignore
 from .models import UserEntity, ChannelEntity
+
+if t.TYPE_CHECKING:
+    from .models import Proxy
+    from .network import Connection
+    from .network.transport.transport import BaseMTProtoTransport
+
+
+class TransportFactory(t.Protocol):
+    def __call__(
+        self,
+        connection: Connection,
+        *,
+        proxy: t.Optional[Proxy] = None,
+    ) ->BaseMTProtoTransport: ...
+
 
 LikeFile = t.Union[str, Path, t.BinaryIO]
 

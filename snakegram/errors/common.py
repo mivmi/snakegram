@@ -32,6 +32,10 @@ class StopRouterPropagation(BaseError):
     """Stop only the current router's event processing."""
     pass
 
+class ProxyError(BaseError):
+    """Raised when there is an error with a proxy connection"""
+    pass
+
 class HandshakeFailedError(BaseError):
     """Raised when the handshake fails"""
     pass

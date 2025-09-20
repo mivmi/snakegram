@@ -27,6 +27,13 @@ class EventType(enum.Enum):
     def title(self):
         return self.name.lower()
 
+class ProxyType(str, enum.Enum):
+    HTTP = 'http'
+    HTTPS = 'https'
+    SOCKS4 = 'socks4'
+    SOCKS5 = 'socks5'
+    MTProto = 'mtproto'
+
 class MessageEntityType(enum.IntEnum):
     Mention = enum.auto()
     Hashtag = enum.auto()

@@ -187,10 +187,10 @@ impl Aes256Ctr {
     }
 
     #[pyo3(signature = (data))]
-    fn __call__(&mut self, data: &[u8]) -> PyResult<Py<PyBytes>> {
+    fn __call__(&mut self, py: pyo3::Python, data: &[u8]) -> PyResult<Py<PyBytes>> {
         let mut buf = data.to_vec();
         self.cipher.apply_keystream(&mut buf);
-        Python::with_gil(|py| Ok(PyBytes::new(py, &buf).into()))
+        Ok(PyBytes::new(py, &buf).into())
     }
 }
 
@@ -222,17 +222,17 @@ impl Aes256Ige {
     }
 
     #[pyo3(signature = (plain_text, hash=false))]
-    fn encrypt(&mut self, plain_text: &[u8], hash: bool) -> PyResult<Py<PyBytes>> {
+    fn encrypt(&mut self, py: Python, plain_text: &[u8], hash: bool) -> PyResult<Py<PyBytes>> {
         match ige256_encrypt(&plain_text, &self.key, &self.iv, hash) {
-            Ok(v) => Python::with_gil(|py| Ok(PyBytes::new(py, &v).into())),
+            Ok(v) => Ok(PyBytes::new(py, &v).into()),
             Err(e) => Err(PyValueError::new_err(e)),
         }
     }
 
     #[pyo3(signature = (cipher_text, hash=false))]
-    fn decrypt(&mut self, cipher_text: &[u8], hash: bool) -> PyResult<Py<PyBytes>> {
+    fn decrypt(&mut self, py: Python, cipher_text: &[u8], hash: bool) -> PyResult<Py<PyBytes>> {
         match ige256_decrypt(&cipher_text, &self.key, &self.iv, hash) {
-            Ok(v) => Python::with_gil(|py| Ok(PyBytes::new(py, &v).into())),
+            Ok(v) => Ok(PyBytes::new(py, &v).into()),
             Err(e) => Err(PyValueError::new_err(e)),
         }
     }

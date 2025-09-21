@@ -65,7 +65,7 @@ impl PublicKey {
 
     // https://core.telegram.org/mtproto/auth_key#41-rsa-paddata-server-public-key-mentioned-above-is-implemented-as-follows
     #[pyo3(signature = (plain_text))]
-    fn encrypt(&self, plain_text: &[u8]) -> PyResult<Py<PyBytes>> {
+    fn encrypt(&self, py: Python, plain_text: &[u8]) -> PyResult<Py<PyBytes>> {
         if plain_text.len() > 144 {
             return Err(PyValueError::new_err("plain_text is too long > 144"));
         }
@@ -129,7 +129,7 @@ impl PublicKey {
                 // ciphertext = m ^ e mod n
                 let c = m.modpow(&self.e, &self.n);
 
-                return Python::with_gil(|py| Ok(PyBytes::new(py, &c.to_bytes_be()).into()));
+                return Ok(PyBytes::new(py, &c.to_bytes_be()).into());
             }
         }
     }

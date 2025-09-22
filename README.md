@@ -29,6 +29,7 @@ pip install snakegram
 ```python
 
 from snakegram import filters, Telegram
+from snakegram.tl import types
 
 client = Telegram(
     'session',

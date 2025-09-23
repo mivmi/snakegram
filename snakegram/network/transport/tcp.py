@@ -84,9 +84,9 @@ class BaseTcpTransport(BaseMTProtoTransport):
             last_exc = None
             addresses = get_dc_address(
                 self.dc_id,
-                is_cdn=self.connection._is_cdn,
-                is_media=self.connection._is_media,
-                force_ipv6=self.connection._use_ipv6
+                is_cdn=self._connection._is_cdn,
+                is_media=self._connection._is_media,
+                force_ipv6=self._connection._use_ipv6
             )
             for host, port in addresses:
                 try:

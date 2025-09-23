@@ -645,7 +645,7 @@ class Auth:
 
         except errors.SeeOtherError as exc:
             self._phone_code_hash_map.pop(phone, None)
-            await self.connection.migrate(
+            await self._connection.migrate(
                 exc.dc_id,
                 exception=exc
             )
@@ -741,7 +741,7 @@ class Auth:
                     )
             except errors.SeeOtherError as exc:
                 self._phone_code_hash_map.pop(phone, None)
-                await self.connection.migrate(
+                await self._connection.migrate(
                     exc.dc_id,
                     exception=exc
                 )

@@ -7,7 +7,7 @@ from random import getrandbits
 from .. import errors, crypto
 from ..tl import mtproto, functions
 from .message import RawMessage, EncryptedMessage
-from ..gadgets.utils import env, retry
+from ..gadgets.utils import env, retry, maybe_await
 
 from ..gadgets.byteutils import Reader, Long, Int128, Int256, bytes_to_long, long_to_bytes
 from ..session.abstract import AbstractSession, AbstractPfsSession
@@ -242,10 +242,11 @@ class Handshake:
                     f'nonce mismatch: {nonce} != {result.nonce}'
                 )
                 
-                public_key_fingerprint, public_key = self.public_key_getter(
+                coro = self.public_key_getter(
                     result.server_public_key_fingerprints
                 )
-                
+                public_key_fingerprint, public_key = await maybe_await(coro)
+
                 logger.info('Auth key generation: public_key_fingerprint=%d', public_key_fingerprint)
                 
                 # https://core.telegram.org/mtproto/auth_key#proof-of-work

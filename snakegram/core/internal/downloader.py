@@ -19,14 +19,6 @@ if t.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-logger.setLevel(logging.DEBUG)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
 
 DOWNLOAD_CHUNK_SIZE = env('DOWNLOAD_CHUNK_SIZE', 512 * 1024, int)
 MAX_DOWNLOAD_CACHE_SIZE = env('MAX_DOWNLOAD_CACHE_SIZE', 1024 * 1024 , int)

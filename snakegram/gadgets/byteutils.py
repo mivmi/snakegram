@@ -4,12 +4,29 @@ import typing as t
 from random import randint
 from struct import pack, unpack
 from contextlib import contextmanager
+
 from .tlobject import TLObject, TYPES_MAP, get_group_name
 
-
+GZIP_ID = 0X3072CFA1
+TRUE_ID = 0X997275B5
+FALSE_ID = 0XBC799737
 VECTOR_ID = 0x1cb5c415
+
 STRING_ERROR = 'replace'
 STRING_ENCODE = 'utf-8'
+BOOL_GROUP_ID = 0X43B904E1
+
+def _is_gzip(obj):
+    return (
+        isinstance(obj, TLObject)
+        and obj._id == GZIP_ID
+    )
+
+def _is_bool(obj):
+    return (
+        isinstance(obj, TLObject)
+        and obj._group_id == BOOL_GROUP_ID
+    )
 
 
 class Int(int):
@@ -172,10 +189,10 @@ class Reader(io.BytesIO):
 
         result = object_type.from_reader(self)
 
-        if isinstance(result, TypeBool):
-            result = isinstance(result, BoolTrue) 
+        if _is_bool(result):
+            result = (result._id == TRUE_ID)
 
-        elif isinstance(result, GzipPacked):
+        elif _is_gzip(result):
             with Reader(gzip.decompress(result.packed_data)) as reader:
                 result = reader.object()
 
@@ -312,11 +329,8 @@ class Writer(io.BytesIO):
     ):
         """Write a `TLObject`."""
 
-        if (
-            group_id == BoolTrue._group_id # BoolTrue._group_id == BoolFalse._group_id
-            and not isinstance(value, TypeBool)
-        ):
-            value = BoolTrue() if value else BoolFalse()
+        if group_id == BOOL_GROUP_ID and not _is_bool(value):
+            value = TYPES_MAP[TRUE_ID if value else FALSE_ID]()
 
         if not isinstance(value, base_type):
             raise TypeError(f'Expected an instance of {base_type.__name__!r},'
@@ -390,7 +404,3 @@ def big_integer_bytes(value: int):
         return bytes_value.rjust(256, b'\x00')
 
     return bytes_value
-
-# circular import
-from ..tl.types.bool import TypeBool, BoolTrue, BoolFalse  # type: ignore
-from ..tl.mtproto.types import GzipPacked # type: ignore

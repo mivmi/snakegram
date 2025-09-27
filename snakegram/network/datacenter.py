@@ -93,7 +93,11 @@ def get_dc_address(
             IPV4_MEDIA_DC
         )
         if dc_id not in target:
-            return get_dc_address(dc_id, False, False, force_ipv6)
+            return get_dc_address(
+                dc_id,
+                False,
+                False,
+                force_ipv6=force_ipv6)
 
     else:
         target = (

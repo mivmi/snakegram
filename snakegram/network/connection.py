@@ -946,7 +946,7 @@ class MediaConnection(Connection):
 
         self._lock = asyncio.Lock()
         self._last_error = None
-        self._active_session = 0
+        self._active_sessions = 0
         self._disconnect_timer = Timer(
             MEDIA_CONNECTION_IDLE_TIMEOUT,
             lambda _: self._schedule_disconnect()
@@ -973,7 +973,7 @@ class MediaConnection(Connection):
             ):
                 await super().connect()
 
-            self._active_session += 1
+            self._active_sessions += 1
 
     async def disconnect(self, exc: Exception = None):
         async with self._lock:

@@ -289,12 +289,12 @@ class Telegram(Methods):
         if (
             connection._is_media
             and
-            self.session.dc_id != connection.state.dc_id
+            self.session.dc_id != connection.dc_id
         ):
             # import auth if media `dc` is different from current session `dc`
             auth = await self(
                 functions.auth.ExportAuthorization(
-                    connection.state.dc_id
+                    connection.dc_id
                 )
             )
 
